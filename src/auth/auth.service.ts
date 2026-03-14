@@ -7,8 +7,8 @@ import argon2id from 'argon2';
 import crypto from 'crypto';
 import { LoginDto } from './dto/login.dto';
 import type { AuthenticationResponseDto } from './dto/authentication.result.dto';
-import { error } from 'console';
 import errorCodes from 'src/utils/errorCodes';
+import type { Request } from 'express';
 
 @Injectable()
 export class AuthService {
@@ -174,5 +174,24 @@ export class AuthService {
         }
         const redisAccessTokenData = JSON.parse(redisAccessTokenDataString);
         return redisAccessTokenData.userId;
+    }
+
+    async logout(req: Request) {
+        const authHeader = req.headers['authorization'];
+        const refreshToken = req.headers['x-refresh-token'] as string;
+        if (authHeader && authHeader.startsWith('Bearer ')) {
+            const token = authHeader.split(' ')[1];
+            const payload = this.jwtService.verifyAccessToken(token);
+            if (payload) {
+                const redisAccessTokenKey = `${this.redisPrefix}${this.redisAccessTokenPrefix}${payload.sub}`;
+                await this.revokeAccessToken(payload.sub);
+                if (refreshToken) {
+                    const refreshPayload = this.jwtService.verifyRefreshToken(refreshToken);
+                    if (refreshPayload) {
+                        await this.revokeRefreshToken(refreshPayload.sub);
+                    }
+                }
+            }
+        }
     }
 }
