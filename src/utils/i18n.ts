@@ -12,6 +12,14 @@ export default {
         [errorCodes.INVALID_ACCESS_TOKEN]: "Le token d'accès est invalide",
         [errorCodes.SYSTEM_NAME_INVALID]: "Le nom du système est invalide",
         [errorCodes.SYSTEM_DESCRIPTION_INVALID]: "La description du système est invalide",
-        [errorCodes.USER_HAS_NO_SYSTEM]: "L'utilisateur n'a pas de système"
+        [errorCodes.USER_HAS_NO_SYSTEM]: "L'utilisateur n'a pas de système",
+        [errorCodes.INVALID_MEMBER_NAME]: "Le nom du membre est invalide",
+        [errorCodes.INVALID_DESCRIPTION]: "La description est invalide",
+        [errorCodes.INVALID_PRONOUNS]: "Les pronoms sont invalides (doit être une chaîne de caractères)",
+        [errorCodes.INVALID_ROLE_NAME]: "Le nom du rôle est invalide",
+        [errorCodes.SYSTEM_NOT_YOURS]: "Ce système ne vous appartient pas",
+        [errorCodes.MEMBER_NOT_FOUND_IN_SYSTEM]: "Membre non trouvé dans le système",
+        [errorCodes.SYSTEM_NOT_FOUND]: "Système non trouvé",
+        [errorCodes.INVALID_PRIVACY_SETTING]: "Paramètre de confidentialité invalide",
     }
 }

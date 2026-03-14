@@ -43,6 +43,20 @@ export class SystemService {
         return system;
     }
 
+    async getSystemById(id: string) {
+        const system = await this.prismaService.system.findUnique({
+            where: {
+                id
+            }
+        });
+        
+        if (!system) {
+            throw new NotFoundException(errorCodes.SYSTEM_NOT_FOUND);
+        }
+
+        return system;
+    }
+
     async deleteSystemForUser(user: User) {
         await this.prismaService.system.deleteMany({
             where: {
