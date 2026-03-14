@@ -5,10 +5,9 @@ import type { AuthenticationResponseDto } from './dto/authentication.result.dto'
 import { LoginDto } from './dto/login.dto';
 import { AuthGuard } from './auth.guard';
 import { Request } from 'express';
-import { User } from '@prisma/client';
+import type { User } from '@prisma/client';
 import { RefreshTokenDto } from './dto/refreshToken.dto';
-
-export type RequestWithUser = Request & {user: User};
+import { CurrentUser } from '../decorators/current-user.decorator';
 
 @Controller('auth')
 export class AuthController {
@@ -37,7 +36,7 @@ export class AuthController {
     @Version(VERSION_NEUTRAL)
     @Get('me')
     @UseGuards(AuthGuard)
-    async getMe(@Req() req: RequestWithUser) {
-        return req.user;
+    async getMe(@CurrentUser() user: User): Promise<User> {
+        return user;
     }
 }
