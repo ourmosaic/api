@@ -4,9 +4,10 @@ import { SystemController } from './system.controller';
 import { AuthModule } from 'src/auth/auth.module';
 import { PrismaModule } from 'src/prisma/prisma.module';
 import { MembersModule } from './members/members.module';
+import { GroupsModule } from './groups/groups.module';
 
 @Module({
-  imports: [PrismaModule, AuthModule, forwardRef(() => MembersModule)],
+  imports: [PrismaModule, AuthModule, forwardRef(() => MembersModule), forwardRef(() => GroupsModule)],
   providers: [SystemService],
   controllers: [SystemController],
   exports: [SystemService]

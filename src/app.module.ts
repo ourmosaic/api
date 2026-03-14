@@ -7,6 +7,7 @@ import { ConfigModule } from '@nestjs/config';
 import { AuthModule } from './auth/auth.module';
 import { JwtModule } from './jwt/jwt.module';
 import { SystemModule } from './system/system.module';
+import { ImportModule } from './import/import.module';
 
 @Module({
   imports: [
@@ -17,7 +18,8 @@ import { SystemModule } from './system/system.module';
     RedisModule,
     AuthModule,
     JwtModule,
-    SystemModule
+    SystemModule,
+    ImportModule
   ],
   controllers: [AppController],
   providers: [AppService],

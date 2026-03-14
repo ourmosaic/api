@@ -28,6 +28,10 @@ export default {
         [errorCodes.CUSTOM_FIELD_ORDER_INVALID]: "L'ordre du champ personnalisé est invalide",
         [errorCodes.INVALID_FIELD_VALUE_FOR_TYPE]: "La valeur du champ est invalide pour le type spécifié",
         [errorCodes.UNKNOWN_FIELD_TYPE]: "Type de champ inconnu",
-        [errorCodes.FRONT_SESSION_NOT_FOUND_IN_SYSTEM]: "Session front non trouvée dans le système"
+        [errorCodes.FRONT_SESSION_NOT_FOUND_IN_SYSTEM]: "Session front non trouvée dans le système",
+        [errorCodes.GROUP_NAME_INVALID]: "Le nom du groupe est invalide",
+        [errorCodes.GROUP_ICON_INVALID]: "L'icône du groupe est invalide",
+        [errorCodes.GROUP_COLOR_INVALID]: "La couleur du groupe est invalide",
+        [errorCodes.GROUP_PARENT_ID_INVALID]: "L'ID du groupe parent est invalide"
     }
 }

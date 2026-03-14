@@ -9,6 +9,7 @@ import { RedisModule } from 'src/redis/redis.module';
 @Module({
   imports: [forwardRef(() => SystemModule), PrismaModule, AuthModule, RedisModule],
   controllers: [MembersController],
-  providers: [MembersService]
+  providers: [MembersService],
+  exports: [MembersService]
 })
 export class MembersModule {}
