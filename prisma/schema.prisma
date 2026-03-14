@@ -1,0 +1,161 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+
+enum PrivacyLevel {
+  PRIVATE
+  FRIENDS
+  PUBLIC
+}
+
+enum FriendshipStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+}
+
+enum CustomFieldType {
+  STRING
+  LONG_TEXT
+  COLOR
+  DATE
+  NUMBER
+}
+
+model User {
+  id                      String    @id @default(uuid())
+  email                   String    @unique
+  password                String
+  createdAt               DateTime  @default(now())
+  updatedAt               DateTime  @updatedAt
+
+  systemInfo              SystemInfo?
+
+  members                 Member[]
+  groups                  Group[]
+  frontSessions           FrontSession[]
+  customFields            CustomField[]
+
+  sentFriendRequests      Friendship[] @relation("UserOne")
+  receivedFriendRequests  Friendship[] @relation("UserTwo")
+}
+
+model SystemInfo {
+  id          String  @id @default(uuid())
+  customName  String?
+  avatarUrl   String?
+  description String?
+
+  userId      String  @unique
+  user        User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Member {
+  id                String        @id @default(uuid())
+  name              String
+  pronouns          String?
+  avatarUrl         String?
+  role              String?
+  description       String?
+  privacy           PrivacyLevel  @default(PRIVATE)
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  userId            String
+  user              User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  frontSessions     FrontSession[]
+  groups            MemberOnGroups[]
+  customFieldValues CustomFieldValue[]
+}
+
+model Group {
+  id        String    @id @default(uuid())
+  name      String
+  color     String?
+  icon      String?
+  createdAt DateTime  @default(now())
+
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  members   MemberOnGroups[]
+}
+
+model MemberOnGroups {
+  memberId    String
+  member      Member    @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  groupId     String
+  group       Group     @relation(fields: [groupId], references: [id], onDelete: Cascade)
+
+  assignedAt  DateTime  @default(now())
+  
+  @@id([memberId, groupId])
+}
+
+model FrontSession {
+  id        String    @id @default(uuid())
+  startTime DateTime  @default(now())
+  endTime   DateTime?
+  notes     String?
+
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  memberId  String
+  member    Member    @relation(fields: [memberId], references: [id], onDelete: Cascade)
+}
+
+model CustomField {
+  id      String          @id @default(uuid())
+  name    String
+  type    CustomFieldType @default(STRING)
+  order   Int             @default(0)
+  privacy PrivacyLevel    @default(PUBLIC)
+
+  userId  String
+  user    User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  values CustomFieldValue[]
+}
+
+model CustomFieldValue {
+  id            String      @id @default(uuid())
+  value         String
+
+  memberId      String
+  member        Member      @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  customFieldId String
+  customField   CustomField @relation(fields: [customFieldId], references: [id], onDelete: Cascade)
+
+  @@unique([memberId, customFieldId])
+}
+
+model Friendship {
+  id        String            @id @default(uuid())
+  status    FriendshipStatus  @default(PENDING)
+  createdAt DateTime          @default(now())
+
+  // sender
+  userOneId String
+  userOne   User              @relation("UserOne", fields: [userOneId], references: [id], onDelete: Cascade)
+
+  // reciever
+  userTwoId String
+  userTwo   User              @relation("UserTwo", fields: [userTwoId], references: [id], onDelete: Cascade)
+
+  @@unique([userOneId, userTwoId])
+}
