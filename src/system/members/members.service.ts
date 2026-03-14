@@ -1,19 +1,21 @@
 import { BadRequestException, Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { SystemService } from '../system.service';
-import type { User, Member, System } from '@prisma/client';
+import type { User, Member, System, FrontSession } from '@prisma/client';
 import { CreateMemberDto } from './dto/createMember.dto';
 import { UpdateMemberDto } from './dto/updateMember.dto';
 import errorCodes from 'src/utils/errorCodes';
 import { FieldType } from '../dto/updateCustomFieldDefinition.dto';
 import { UpdateFieldContentDto } from './dto/updateFieldContent.dto';
 import { NotFoundError } from 'rxjs';
+import { RedisService } from 'src/redis/redis.service';
 
 @Injectable()
 export class MembersService {
     constructor(
         private readonly prisma: PrismaService,
-        private readonly systemService: SystemService
+        private readonly systemService: SystemService,
+        private readonly redisService: RedisService
     ) {}
 
     async createMember(system: System, dto: CreateMemberDto) : Promise<Member> {
@@ -176,5 +178,96 @@ export class MembersService {
         }
 
         return await this.getMemberById(memberId, system, true);
+    }
+
+    async startFrontSessionForMember(memberId: string, system: System) : Promise<FrontSession> {
+        const member = await this.prisma.member.findUnique({
+            where: {
+                id: memberId
+            }
+        });
+
+        if (!member || member.systemId !== system.id) {
+            throw new NotFoundException(errorCodes.MEMBER_NOT_FOUND_IN_SYSTEM);
+        }
+
+        const frontSession = await this.prisma.frontSession.create({
+            data: {
+                memberId,
+                systemId: system.id
+            }
+        });
+
+        await this.redisService.publish(`${system.id}-sessions`, JSON.stringify({
+            event: 'SESSION_STARTED',
+            data: {
+                sessionId: frontSession.id,
+                memberId
+            }
+        }));
+
+        return frontSession;
+    }
+
+    async endFrontSessionWithId(sessionId: string, system: System) : Promise<FrontSession> {
+        const session = await this.prisma.frontSession.findUnique({
+            where: {
+                id: sessionId
+            }
+        });
+
+        if (!session || session.systemId !== system.id) {
+            throw new NotFoundException(errorCodes.FRONT_SESSION_NOT_FOUND_IN_SYSTEM);
+        }
+
+        await this.prisma.frontSession.update({
+            where: {
+                id: sessionId
+            },
+            data: {
+                endTime: new Date()
+            }
+        })
+
+        const sessionMocked = {
+            ...session,
+            endTime: new Date()
+        }
+
+        await this.redisService.publish(`${system.id}-sessions`, JSON.stringify({
+            event: 'SESSION_ENDED',
+            data: {
+                sessionId,
+                memberId: session.memberId
+            }
+        }));
+
+        return sessionMocked;
+    }
+
+    async endFrontSessionForMember(memberId: string, system: System) : Promise<FrontSession> {
+        const member = await this.prisma.member.findUnique({
+            where: {
+                id: memberId
+            }
+        });
+
+        if (!member || member.systemId !== system.id) {
+            throw new NotFoundException(errorCodes.MEMBER_NOT_FOUND_IN_SYSTEM);
+        }
+
+        const activeSession = await this.prisma.frontSession.findFirst({
+            where: {
+                memberId,
+                systemId: system.id,
+                endTime: null
+            }
+        });
+
+        if (!activeSession) {
+            throw new NotFoundException(errorCodes.FRONT_SESSION_NOT_FOUND_IN_SYSTEM);
+        }
+
+        return await this.endFrontSessionWithId(activeSession.id, system);
     }
 }

@@ -3,7 +3,7 @@ import { MembersService } from './members.service';
 import { AuthGuard } from 'src/auth/auth.guard';
 import { SystemInterceptor } from '../system.interceptor';
 import { System as Sys } from 'src/decorators/system.decorator';
-import type { Member, System } from '@prisma/client';
+import type { FrontSession, Member, System } from '@prisma/client';
 import { CreateMemberDto } from './dto/createMember.dto';
 import { UpdateMemberDto } from './dto/updateMember.dto';
 import { UpdateFieldContentDto } from './dto/updateFieldContent.dto';
@@ -50,5 +50,29 @@ export class MembersController {
     @UseInterceptors(SystemInterceptor)
     async updateMemberField(@Sys() system: System, @Param('id') memberId: string, @Param('fieldId') fieldId: string, @Body() dto: UpdateFieldContentDto): Promise<Member> {
         return this.membersService.updateMemberField(memberId, system, fieldId, dto);
+    }
+
+    @Post(':id/front-session/start')
+    @Version('1')
+    @UseGuards(AuthGuard)
+    @UseInterceptors(SystemInterceptor)
+    async startFrontSession(@Sys() system: System, @Param('id') memberId: string): Promise<FrontSession> {
+        return this.membersService.startFrontSessionForMember(memberId, system);
+    }
+
+    @Post('front-session/:sessionId/end')
+    @Version('1')
+    @UseGuards(AuthGuard)
+    @UseInterceptors(SystemInterceptor)
+    async endFrontSession(@Sys() system: System, @Param('sessionId') sessionId: string): Promise<FrontSession> {
+        return this.membersService.endFrontSessionWithId(sessionId, system);
+    }
+
+    @Post(':id/front-session/end')
+    @Version('1')
+    @UseGuards(AuthGuard)
+    @UseInterceptors(SystemInterceptor)
+    async endFrontSessionForMember(@Sys() system: System, @Param('id') memberId: string): Promise<FrontSession> {
+        return this.membersService.endFrontSessionForMember(memberId, system);
     }
 }

@@ -27,6 +27,7 @@ export default {
         [errorCodes.CUSTOM_FIELD_VALUE_INVALID]: "La valeur du champ personnalisé est invalide",
         [errorCodes.CUSTOM_FIELD_ORDER_INVALID]: "L'ordre du champ personnalisé est invalide",
         [errorCodes.INVALID_FIELD_VALUE_FOR_TYPE]: "La valeur du champ est invalide pour le type spécifié",
-        [errorCodes.UNKNOWN_FIELD_TYPE]: "Type de champ inconnu"
+        [errorCodes.UNKNOWN_FIELD_TYPE]: "Type de champ inconnu",
+        [errorCodes.FRONT_SESSION_NOT_FOUND_IN_SYSTEM]: "Session front non trouvée dans le système"
     }
 }
