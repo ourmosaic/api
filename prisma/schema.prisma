@@ -124,7 +124,7 @@ model CustomField {
   name    String
   type    CustomFieldType @default(STRING)
   order   Int             @default(0)
-  privacy PrivacyLevel    @default(PUBLIC)
+  privacy PrivacyLevel    @default(PRIVATE)
 
   systemId  String
   system    System        @relation(fields: [systemId], references: [id], onDelete: Cascade)
