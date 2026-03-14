@@ -26,7 +26,11 @@
     "@nestjs/platform-express": "^11.0.1",
     "@prisma/adapter-pg": "^7.5.0",
     "@prisma/client": "^7.5.0",
+    "argon2": "^0.44.0",
+    "class-transformer": "^0.5.1",
+    "class-validator": "^0.15.1",
     "dotenv": "^17.3.1",
+    "fast-jwt": "^6.1.0",
     "ioredis": "^5.10.0",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1"

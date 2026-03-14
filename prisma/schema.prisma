@@ -34,23 +34,20 @@ enum CustomFieldType {
 
 model User {
   id                      String    @id @default(uuid())
+  username                String    @unique
   email                   String    @unique
   password                String
   createdAt               DateTime  @default(now())
   updatedAt               DateTime  @updatedAt
 
-  systemInfo              SystemInfo?
-
-  members                 Member[]
-  groups                  Group[]
-  frontSessions           FrontSession[]
-  customFields            CustomField[]
+  isSystem                Boolean   @default(false) // Permet de savoir rapidement si l'utilisateur est un système
+  system                  System?
 
   sentFriendRequests      Friendship[] @relation("UserOne")
   receivedFriendRequests  Friendship[] @relation("UserTwo")
 }
 
-model SystemInfo {
+model System {
   id          String  @id @default(uuid())
   customName  String?
   avatarUrl   String?
@@ -58,6 +55,11 @@ model SystemInfo {
 
   userId      String  @unique
   user        User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  members       Member[]
+  groups        Group[]
+  frontSessions FrontSession[]
+  customFields  CustomField[]
 }
 
 model Member {
@@ -71,8 +73,8 @@ model Member {
   createdAt         DateTime      @default(now())
   updatedAt         DateTime      @updatedAt
 
-  userId            String
-  user              User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  systemId          String
+  system            System        @relation(fields: [systemId], references: [id], onDelete: Cascade)
   
   frontSessions     FrontSession[]
   groups            MemberOnGroups[]
@@ -86,8 +88,8 @@ model Group {
   icon      String?
   createdAt DateTime  @default(now())
 
-  userId    String
-  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  systemId  String
+  system    System    @relation(fields: [systemId], references: [id], onDelete: Cascade)
 
   members   MemberOnGroups[]
 }
@@ -110,8 +112,8 @@ model FrontSession {
   endTime   DateTime?
   notes     String?
 
-  userId    String
-  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  systemId  String
+  system    System    @relation(fields: [systemId], references: [id], onDelete: Cascade)
 
   memberId  String
   member    Member    @relation(fields: [memberId], references: [id], onDelete: Cascade)
@@ -124,8 +126,8 @@ model CustomField {
   order   Int             @default(0)
   privacy PrivacyLevel    @default(PUBLIC)
 
-  userId  String
-  user    User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  systemId  String
+  system    System        @relation(fields: [systemId], references: [id], onDelete: Cascade)
 
   values CustomFieldValue[]
 }
