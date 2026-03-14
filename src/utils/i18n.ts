@@ -21,5 +21,12 @@ export default {
         [errorCodes.MEMBER_NOT_FOUND_IN_SYSTEM]: "Membre non trouvé dans le système",
         [errorCodes.SYSTEM_NOT_FOUND]: "Système non trouvé",
         [errorCodes.INVALID_PRIVACY_SETTING]: "Paramètre de confidentialité invalide",
+        [errorCodes.CUSTOM_FIELD_NOT_FOUND_IN_SYSTEM]: "Champ personnalisé non trouvé dans le système",
+        [errorCodes.CUSTOM_FIELD_NAME_INVALID]: "Le nom du champ personnalisé est invalide",
+        [errorCodes.CUSTOM_FIELD_TYPE_INVALID]: "Le type du champ personnalisé est invalide",
+        [errorCodes.CUSTOM_FIELD_VALUE_INVALID]: "La valeur du champ personnalisé est invalide",
+        [errorCodes.CUSTOM_FIELD_ORDER_INVALID]: "L'ordre du champ personnalisé est invalide",
+        [errorCodes.INVALID_FIELD_VALUE_FOR_TYPE]: "La valeur du champ est invalide pour le type spécifié",
+        [errorCodes.UNKNOWN_FIELD_TYPE]: "Type de champ inconnu"
     }
 }
