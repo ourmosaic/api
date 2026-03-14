@@ -88,6 +88,10 @@ model Group {
   icon      String?
   createdAt DateTime  @default(now())
 
+  parentId  String?   @default("root")
+  parent    Group?    @relation("GroupToGroup", fields: [parentId], references: [id])
+  children  Group[]   @relation("GroupToGroup")
+
   systemId  String
   system    System    @relation(fields: [systemId], references: [id], onDelete: Cascade)
 
