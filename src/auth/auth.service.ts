@@ -183,7 +183,6 @@ export class AuthService {
             const token = authHeader.split(' ')[1];
             const payload = this.jwtService.verifyAccessToken(token);
             if (payload) {
-                const redisAccessTokenKey = `${this.redisPrefix}${this.redisAccessTokenPrefix}${payload.sub}`;
                 await this.revokeAccessToken(payload.sub);
                 if (refreshToken) {
                     const refreshPayload = this.jwtService.verifyRefreshToken(refreshToken);
