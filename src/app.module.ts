@@ -6,6 +6,7 @@ import { RedisModule } from './redis/redis.module';
 import { ConfigModule } from '@nestjs/config';
 import { AuthModule } from './auth/auth.module';
 import { JwtModule } from './jwt/jwt.module';
+import { SystemModule } from './system/system.module';
 
 @Module({
   imports: [
@@ -15,7 +16,8 @@ import { JwtModule } from './jwt/jwt.module';
     PrismaModule,
     RedisModule,
     AuthModule,
-    JwtModule
+    JwtModule,
+    SystemModule
   ],
   controllers: [AppController],
   providers: [AppService],
