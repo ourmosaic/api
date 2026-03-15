@@ -57,8 +57,8 @@
 
 1. **Clone the project**:
    ```bash
-   git clone [https://github.com/your-username/ourmosaic-api.git](https://github.com/your-username/ourmosaic-api.git)
-   cd ourmosaic-api
+   git clone https://github.com/ourmosaic/api.git mosaic-api
+   cd mosaic-api
    ```
 
 2. **Start the infrastructure**:
@@ -67,7 +67,7 @@ docker-compose up -d
 ```
 
 3. **Configure environment**:
-Copy `example.env` to `.env` and adjust your variables.
+Copy `example.env` to `.env` and adjust your variables. Please also adjust the variables in `src/utils/constants.ts`
 
 4. **Initialize database**:
 ```bash

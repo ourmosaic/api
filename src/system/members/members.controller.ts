@@ -170,7 +170,6 @@ export class MembersController {
 
             const fileName = `avatars/systems/${system.id}/members/${memberId}/${Date.now()}.webp`;
 
-            // remove old avatar from storage if exists
             const member = await this.membersService.getMemberById(memberId, system, false);
             if (member.avatarUrl) {
                 const oldFileName = member.avatarUrl.replace(`${MINIO_URL}/${MINIO_BUCKET_NAME}/`, '');

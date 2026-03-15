@@ -10,6 +10,7 @@ import { SystemModule } from './system/system.module';
 import { ImportModule } from './import/import.module';
 import { StorageModule } from './storage/storage.module';
 import { FriendshipModule } from './friendship/friendship.module';
+import { UsersModule } from './users/users.module';
 
 @Module({
   imports: [
@@ -23,7 +24,8 @@ import { FriendshipModule } from './friendship/friendship.module';
     SystemModule,
     ImportModule,
     StorageModule,
-    FriendshipModule
+    FriendshipModule,
+    UsersModule
   ],
   controllers: [AppController],
   providers: [AppService],
