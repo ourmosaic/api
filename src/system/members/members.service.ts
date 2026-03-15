@@ -16,7 +16,6 @@ export class MembersService {
         private readonly prisma: PrismaService,
         private readonly systemService: SystemService,
         private readonly redisService: RedisService
-        // hey copilot, are you aware that you have a tool to read files instead of using cat ??
     ) {}
 
     async createMember(system: System, dto: CreateMemberDto) : Promise<Member> {
