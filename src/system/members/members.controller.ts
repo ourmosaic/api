@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Patch, Post, Query, UseGuards, UseInterceptors, Version } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Put, Query, UseGuards, UseInterceptors, Version } from '@nestjs/common';
 import { MembersService } from './members.service';
 import { AuthGuard } from 'src/auth/auth.guard';
 import { SystemInterceptor } from '../system.interceptor';
@@ -96,5 +96,21 @@ export class MembersController {
         @Query('endDate') endDate: number = Date.now()
     ): Promise<FrontSession[]> {
         return this.membersService.getFrontSessionsForSystem(system, limit, offset, startDate, endDate);
+    }
+
+    @Put(':id/groups')
+    @Version('1')
+    @UseGuards(AuthGuard)
+    @UseInterceptors(SystemInterceptor)
+    async updateMemberGroups(@Sys() system: System, @Param('id') memberId: string, @Body('groupIds') groupIds: string[]): Promise<Member> {
+        return this.membersService.updateMemberGroups(memberId, system, groupIds);
+    }
+
+    @Delete(':id/groups')
+    @Version('1')
+    @UseGuards(AuthGuard)
+    @UseInterceptors(SystemInterceptor)
+    async deleteMemberGroups(@Sys() system: System, @Param('id') memberId: string, @Body('groupIds') groupIds: string[]): Promise<Member> {
+        return this.membersService.deleteMemberGroups(memberId, system, groupIds);
     }
 }

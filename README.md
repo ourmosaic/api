@@ -28,7 +28,7 @@
 ### MVP Features (In Progress)
 
 - [X] **Member Management**: Create detailed profiles for each alter (name, pronouns, avatar, role).
-- [ ] **Group Organization**: Classify your members into custom folders/groups.
+- [X] **Group Organization**: Classify your members into custom folders/groups.
 - [ ] **Front Tracking**: Log who is in control in real-time with a precise visual history.
 - [X] **Custom Fields**: Tailor the app to your needs with dynamic fields (colors, dates, text).
 - [X] **Simply Plural Import**: Easily migrate your existing data.

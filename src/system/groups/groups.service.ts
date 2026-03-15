@@ -24,4 +24,33 @@ export class GroupsService {
             }
         });
     }
+
+    async deleteChildGroups(parentId: string): Promise<true> {
+        const childGroups = await this.prisma.group.findMany({
+            where: { parentId }
+        });
+
+        for (const group of childGroups) {
+            await this.deleteGroup({ id: group.systemId } as System, group.id);
+        }
+
+        return true;
+    }
+
+    async deleteGroup(system: System, groupId: string): Promise<true> {
+        const group = await this.prisma.group.findUnique({
+            where: { id: groupId }
+        });
+
+        if (!group || group.systemId !== system.id) {
+            throw new Error('Group not found in system');
+        }
+
+        await this.membersService.removeGroupFromMembers(system, groupId);
+        await this.deleteChildGroups(groupId);
+        await this.prisma.group.delete({
+            where: { id: groupId }
+        });
+        return true;
+    }
 }

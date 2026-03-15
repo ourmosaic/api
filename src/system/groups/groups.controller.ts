@@ -1,4 +1,4 @@
-import { Body, Controller, Post, UseGuards, UseInterceptors, Version } from '@nestjs/common';
+import { Body, Controller, Delete, Post, UseGuards, UseInterceptors, Version } from '@nestjs/common';
 import { AuthGuard } from 'src/auth/auth.guard';
 import { SystemInterceptor } from '../system.interceptor';
 import { GroupsService } from './groups.service';
@@ -18,5 +18,13 @@ export class GroupsController {
     @UseInterceptors(SystemInterceptor)
     async createGroup(@Sys() system: System, @Body() dto: CreateGroupDto) {
         return this.groupsService.createGroup(system, dto);
+    }
+
+    @Delete(':id')
+    @Version('1')
+    @UseGuards(AuthGuard)
+    @UseInterceptors(SystemInterceptor)
+    async deleteGroup(@Sys() system: System, @Body('id') groupId: string) {
+        return this.groupsService.deleteGroup(system, groupId);
     }
 }

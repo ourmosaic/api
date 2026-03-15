@@ -294,7 +294,7 @@ export class MembersService {
             skip: offset
         });
     }
-    
+
     async getFrontSessionsForSystem(system: System, limit: number, offset: number, startDate: number, endDate: number) : Promise<FrontSession[]> {
         return await this.prisma.frontSession.findMany({
             where: {
@@ -310,5 +310,71 @@ export class MembersService {
             take: limit,
             skip: offset
         });
+    }
+
+    async removeGroupFromMembers(system: System, groupId: string): Promise<true> {
+        await this.prisma.memberOnGroups.deleteMany({
+            where: {
+                groupId
+            }
+        });
+        return true;
+    }
+
+    async updateMemberGroups(memberId: string, system: System, groupIds: string[]): Promise<Member> {
+        const member = await this.prisma.member.findUnique({
+            where: {
+                id: memberId
+            }
+        });
+        if (!member || member.systemId !== system.id) {
+            throw new NotFoundException(errorCodes.MEMBER_NOT_FOUND_IN_SYSTEM);
+        }
+        const validGroups = await this.prisma.group.findMany({
+            where: {
+                id: { in: groupIds },
+                systemId: system.id
+            }
+        });
+        const validGroupIds = validGroups.map(g => g.id);
+        const existingMemberGroups = await this.prisma.memberOnGroups.findMany({
+            where: {
+                memberId
+            }
+        });
+        const existingGroupIds = existingMemberGroups.map(mg => mg.groupId);
+
+        const newGroupIds = validGroupIds.filter(id => !existingGroupIds.includes(id));
+        const memberOnGroupsToCreate = newGroupIds.map(groupId => ({
+            memberId,
+            groupId
+        }));
+
+        if (memberOnGroupsToCreate.length > 0) {
+            await this.prisma.memberOnGroups.createMany({
+                data: memberOnGroupsToCreate,
+                skipDuplicates: true
+            });
+        }
+
+        return await this.getMemberById(memberId, system, true);
+    }
+
+    async deleteMemberGroups(memberId: string, system: System, groupIds: string[]): Promise<Member> {
+        const member = await this.prisma.member.findUnique({
+            where: {
+                id: memberId
+            }
+        });
+        if (!member || member.systemId !== system.id) {
+            throw new NotFoundException(errorCodes.MEMBER_NOT_FOUND_IN_SYSTEM);
+        }
+        await this.prisma.memberOnGroups.deleteMany({
+            where: {
+                memberId,
+                groupId: { in: groupIds }
+            }
+        });
+        return await this.getMemberById(memberId, system, true);
     }
 }
