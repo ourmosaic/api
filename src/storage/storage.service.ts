@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as Minio from 'minio';
 import { UploadedObjectInfo } from 'node_modules/minio/dist/esm/internal/type.mjs';
+import sharp from 'sharp';
 
 @Injectable()
 export class StorageService {
@@ -17,7 +18,9 @@ export class StorageService {
         })
     }
 
-    async uploadFile(bucket: string, fileName: string, file: Buffer) : Promise<UploadedObjectInfo> {
-        return this.minioClient.putObject(bucket, fileName, file);
+    async uploadFile(bucket: string, fileName: string, file: Buffer, size?: number, contentType?: string) : Promise<UploadedObjectInfo> {
+        return this.minioClient.putObject(bucket, fileName, file, size, {
+            'Content-Type': contentType
+        });
     }
 }

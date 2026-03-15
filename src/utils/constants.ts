@@ -1,0 +1,1 @@
+export const MINIO_BUCKET_NAME = 'mosaic';

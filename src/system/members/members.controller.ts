@@ -15,6 +15,7 @@ import { UploadedFile } from '@nestjs/common';
 import { ApiForbiddenResponse, ApiOkResponse } from '@nestjs/swagger';
 import { Member as MemberEntity } from 'src/@generated/prisma-nestjs-dto/member.entity';
 import { FrontSession as FrontSessionEntity } from 'src/@generated/prisma-nestjs-dto/frontSession.entity';
+import { MINIO_BUCKET_NAME } from 'src/utils/constants';
 
 @Controller('system/members')
 export class MembersController {
@@ -167,11 +168,11 @@ export class MembersController {
                 .webp({ quality: 80 })
                 .toBuffer();
 
-            const fileName = `avatars/${memberId}-${Date.now()}.webp`;
+            const fileName = `avatars/systems/${system.id}/members/${memberId}/${Date.now()}.webp`;
 
-            await this.storageService.uploadFile('mosaic', fileName, procImage);
+            await this.storageService.uploadFile(MINIO_BUCKET_NAME, fileName, procImage, metadata.size, 'image/webp');
 
-            return this.membersService.updateAvatarUrl(memberId, system, `https://storage.ourmosaic.space/mosaic/${fileName}`);
+            return this.membersService.updateAvatarUrl(memberId, system, `https://storage.ourmosaic.space/${MINIO_BUCKET_NAME}/${fileName}`);
         } catch (err) {
             if (err instanceof BadRequestException) {
                 throw err;

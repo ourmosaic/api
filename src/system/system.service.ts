@@ -1,15 +1,19 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { AuthService } from 'src/auth/auth.service';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { CreateSystemDto } from './dto/createSystem.dto';
 import { CustomField, System, User } from '@prisma/client';
 import errorCodes from 'src/utils/errorCodes';
 import { UpdateCustomFieldDefinitionDto } from './dto/updateCustomFieldDefinition.dto';
+import { StorageService } from 'src/storage/storage.service';
+import { MINIO_BUCKET_NAME } from 'src/utils/constants';
+import sharp from 'sharp';
 
 @Injectable()
 export class SystemService {
     constructor(
-        private readonly prismaService: PrismaService
+        private readonly prismaService: PrismaService,
+        private readonly storageService: StorageService
     ) {}
 
     async createSystem(createSystemDto: CreateSystemDto, user: User) {
@@ -141,5 +145,35 @@ export class SystemService {
                 id: customFieldId
             }
         });
+    }
+
+    async updateSystemAvatar(system: System, file: Express.Multer.File): Promise<System> {
+       try {
+        const metadata = await sharp(file.buffer).metadata();
+        if (!['jpeg', 'jpg', 'png', 'webp'].includes(metadata.format)) {
+            throw new BadRequestException(errorCodes.GIFS_NOT_SUPPORTED);
+        }
+        const procImage = await sharp(file.buffer)
+            .resize({ width: 512, height: 512, fit: sharp.fit.cover })
+            .webp({ quality: 80 })
+            .toBuffer();
+
+        const fileName = `avatars/systems/${system.id}/${Date.now()}.webp`;
+        await this.storageService.uploadFile(MINIO_BUCKET_NAME, fileName, procImage, metadata.size, 'image/webp');
+
+        const avatarUrl = `https://storage.ourmosaic.space/${MINIO_BUCKET_NAME}/${fileName}`;
+
+        return await this.prismaService.system.update({
+            where: {
+                id: system.id
+            },
+            data: {
+                avatarUrl
+            }
+        });
+       } catch (err) {
+        console.error('Error uploading system avatar:', err);
+        throw new BadRequestException(errorCodes.GIFS_NOT_SUPPORTED);
+       }
     }
 }

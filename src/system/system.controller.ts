@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, Put, UseGuards, UseInterceptors, Version } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Put, UploadedFile, UseGuards, UseInterceptors, Version } from '@nestjs/common';
 import { AuthGuard } from 'src/auth/auth.guard';
 import { CreateSystemDto } from './dto/createSystem.dto';
 import { CurrentUser } from 'src/decorators/current-user.decorator';
@@ -7,6 +7,7 @@ import { SystemService } from './system.service';
 import { SystemInterceptor } from './system.interceptor';
 import { System as Sys } from 'src/decorators/system.decorator';
 import { UpdateCustomFieldDefinitionDto } from './dto/updateCustomFieldDefinition.dto';
+import { FileInterceptor } from '@nestjs/platform-express';
 
 @Controller('system')
 export class SystemController {
@@ -34,7 +35,7 @@ export class SystemController {
         return;
     }
 
-    @Put('customFields')
+    @Put('@me/customFields')
     @Version('1')
     @UseGuards(AuthGuard)
     @UseInterceptors(SystemInterceptor)
@@ -42,7 +43,7 @@ export class SystemController {
         return this.systemService.createCustomFieldForSystem(system);
     }
 
-    @Patch('customFields/:fieldId')
+    @Patch('@me/customFields/:fieldId')
     @Version('1')
     @UseGuards(AuthGuard)
     @UseInterceptors(SystemInterceptor)
@@ -50,12 +51,20 @@ export class SystemController {
         return this.systemService.updateCustomField(system, fieldId, dto);
     }
 
-    @Delete('customFields/:fieldId')
+    @Delete('@me/customFields/:fieldId')
     @Version('1')
     @UseGuards(AuthGuard)
     @UseInterceptors(SystemInterceptor)
     async deleteCustomField(@Sys() system: System, @Param('fieldId') fieldId: string) : Promise<void> {
         await this.systemService.deleteCustomField(system, fieldId);
         return;
+    }
+
+    @Patch('@me/avatar')
+    @Version('1')
+    @UseGuards(AuthGuard)
+    @UseInterceptors(SystemInterceptor, FileInterceptor('file'))
+    async updateAvatar(@Sys() system: System, @UploadedFile() file: Express.Multer.File): Promise<System> {
+        return this.systemService.updateSystemAvatar(system, file);
     }
 }

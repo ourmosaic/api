@@ -10,6 +10,7 @@ import errorCodes from 'src/utils/errorCodes';
 import axios from 'axios';
 import sharp from 'sharp';
 import { StorageService } from 'src/storage/storage.service';
+import { MINIO_BUCKET_NAME } from 'src/utils/constants';
 
 @Injectable()
 export class ImportService {
@@ -116,12 +117,16 @@ export class ImportService {
                 try {
                     const response = await axios.get(avatarUrl, { responseType: 'arraybuffer' });
                     const buffer = Buffer.from(response.data, 'binary');
+                    const metadata = await sharp(buffer).metadata();
+                    if (!['jpeg', 'jpg', 'png', 'webp'].includes(metadata.format)) {
+                        continue;
+                    }
                     const optimizedBuffer = await sharp(buffer)
                         .resize(512, 512, { fit: 'inside' })
                         .toFormat('webp', { quality: 80 })
                         .toBuffer();
                     const fileName = `avatars/${newMemberId}-${Date.now()}.webp`;
-                    await this.storageService.uploadFile('mosaic', fileName, optimizedBuffer);
+                    await this.storageService.uploadFile(MINIO_BUCKET_NAME, fileName, optimizedBuffer, metadata.size, 'image/webp');
                     avatarUrl = `https://storage.ourmosaic.space/mosaic/${fileName}`;
                 } catch (error) {
                     console.error(`Failed to upload avatar for member ${member.name}:`, error);
