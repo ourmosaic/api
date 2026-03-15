@@ -5,6 +5,7 @@ import { FieldType } from 'src/system/dto/updateCustomFieldDefinition.dto';
 import { GroupsService } from 'src/system/groups/groups.service';
 import { MembersService } from 'src/system/members/members.service';
 import { SystemService } from 'src/system/system.service';
+import { randomUUID } from 'crypto';
 
 @Injectable()
 export class ImportService {
@@ -47,6 +48,7 @@ export class ImportService {
 
         const customFieldIdMap: Record<string, string> = {};
         const fieldIdToNameMap: Record<string, string> = {};
+        const customFieldsToCreate: any[] = [];
 
         for (const fieldName of Object.keys(spUser.fields)) {
             const fieldId = spUser.fields[fieldName].name;
@@ -70,12 +72,20 @@ export class ImportService {
                 0
             );
             
-            const createdField = await this.systemService.createCustomFieldForSystem(system, {
+            const newFieldId = randomUUID();
+            customFieldsToCreate.push({
+                id: newFieldId,
                 name: field.name,
                 type: fieldType,
-                order
+                order: Math.round(order),
+                systemId: system.id,
+                privacy: PrivacyLevel.PRIVATE
             });
-            customFieldIdMap[fieldIdToNameMap[field._id]] = createdField.id;
+            customFieldIdMap[fieldIdToNameMap[field._id]] = newFieldId;
+        }
+
+        if (customFieldsToCreate.length > 0) {
+            await this.prisma.customField.createMany({ data: customFieldsToCreate });
         }
 
         const privacyBucketMap: Record<string, PrivacyLevel> = {};
@@ -86,33 +96,49 @@ export class ImportService {
         }
         
         const memberIdMap: Record<string, string> = {};
+        const membersToCreate: any[] = [];
+        const customFieldValuesToCreate: any[] = [];
+
         for (const member of data.members) {
-            const createdMember = await this.membersService.createMember(system, {
+            const newMemberId = randomUUID();
+            memberIdMap[member._id] = newMemberId;
+
+            let avatarUrl : string | undefined = undefined;
+            if (member.avatarUuid) {
+                avatarUrl = `https://spaces.apparyllis.com/avatars/${member.uid}/${member.avatarUuid}`;
+            }
+
+            membersToCreate.push({
+                id: newMemberId,
                 name: member.name,
                 description: member.desc,
                 pronouns: member.pronouns,
-                privacy: (privacyBucketMap[member.privacyBucketId] || PrivacyLevel.PRIVATE) as any
+                privacy: (privacyBucketMap[member.privacyBucketId] || PrivacyLevel.PRIVATE) as any,
+                avatarUrl,
+                systemId: system.id,
             });
-            memberIdMap[member._id] = createdMember.id;
 
             if (member.info) {
                 for (const fieldId in member.info) {
                     const value = member.info[fieldId];
                     const mappedFieldId = customFieldIdMap[fieldId];
                     if (value && mappedFieldId) {
-                        await this.membersService.updateMemberField(createdMember.id, system, mappedFieldId, { value });
+                        customFieldValuesToCreate.push({
+                            id: randomUUID(),
+                            value: String(value),
+                            memberId: newMemberId,
+                            customFieldId: mappedFieldId
+                        });
                     }
                 }
             }
+        }
 
-            if (member.avatarUuid) {
-                await this.prisma.member.update({
-                    where: { id: createdMember.id },
-                    data: {
-                        avatarUrl: `https://spaces.apparyllis.com/avatars/${member.uid}/${member.avatarUuid}`
-                    }
-                });
-            }
+        if (membersToCreate.length > 0) {
+            await this.prisma.member.createMany({ data: membersToCreate });
+        }
+        if (customFieldValuesToCreate.length > 0) {
+            await this.prisma.customFieldValue.createMany({ data: customFieldValuesToCreate });
         }
 
         const groupIdMap: Record<string, string> = {};
@@ -142,41 +168,68 @@ export class ImportService {
             visitGroup(group._id);
         }
         
+        const groupsToInsert: any[] = [];
+        const memberOnGroupsToCreate: any[] = [];
+
+        for (const group of groupsToCreate) {
+            groupIdMap[group._id] = randomUUID();
+        }
+
         for (const group of groupsToCreate) {
             const parentId = group.parent && group.parent !== 'root' ? group.parent : null;
-            const createdGroup = await this.groupsService.createGroup(system, {
-                name: group.name,
-                color: group.color,
-                icon: group.emoji || group.icon,
-                parentId: parentId ? groupIdMap[parentId] : undefined
+            
+            groupsToInsert.push({
+                id: groupIdMap[group._id],
+                name: group.name || 'Group',
+                color: group.color || '#000000',
+                icon: group.emoji || group.icon || 'default-group-icon',
+                parentId: parentId ? groupIdMap[parentId] : null,
+                systemId: system.id
             });
-            groupIdMap[group._id] = createdGroup.id;
 
             if (group.members && group.members.length > 0) {
-                await this.prisma.memberOnGroups.createMany({
-                    data: group.members.map((memberId: string) => ({
-                        memberId: memberIdMap[memberId],
-                        groupId: createdGroup.id
-                    }))
-                });
+                for (const spMemberId of group.members) {
+                    const mappedMemberId = memberIdMap[spMemberId];
+                    if (mappedMemberId) {
+                        memberOnGroupsToCreate.push({
+                            memberId: mappedMemberId,
+                            groupId: groupIdMap[group._id]
+                        });
+                    }
+                }
             }
         }
 
+        if (groupsToInsert.length > 0) {
+            await this.prisma.group.createMany({ data: groupsToInsert });
+        }
+        if (memberOnGroupsToCreate.length > 0) {
+            await this.prisma.memberOnGroups.createMany({ 
+                data: memberOnGroupsToCreate, 
+                skipDuplicates: true 
+            });
+        }
+
+        const frontSessionsToCreate: any[] = [];
         for (const session of data.frontHistory) {
             const mappedMemberId = memberIdMap[session.member];
             if (!mappedMemberId) continue;
             
-            await this.prisma.frontSession.create({
-                data: {
-                    memberId: mappedMemberId,
-                    systemId: system.id,
-                    startTime: new Date(session.startTime),
-                    endTime: session.endTime ? new Date(session.endTime) : null,
-                    notes: session.customStatus
-                }
+            frontSessionsToCreate.push({
+                id: randomUUID(),
+                memberId: mappedMemberId,
+                systemId: system.id,
+                startTime: new Date(session.startTime),
+                endTime: session.endTime ? new Date(session.endTime) : null,
+                notes: session.customStatus
             });
+        }
+
+        if (frontSessionsToCreate.length > 0) {
+            await this.prisma.frontSession.createMany({ data: frontSessionsToCreate });
         }
 
         return this.systemService.getSystemById(system.id);
     }
 }
+
