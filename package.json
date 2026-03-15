@@ -36,6 +36,7 @@
     "fast-jwt": "^6.1.0",
     "ioredis": "^5.10.0",
     "minio": "^8.0.7",
+    "ora": "^9.3.0",
     "prisma-generator-nestjs-dto": "^1.1.4",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",

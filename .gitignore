@@ -61,3 +61,6 @@ ignored
 yarn.lock
 
 src/@generated
+
+*.key
+setup.env
