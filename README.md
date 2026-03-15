@@ -31,7 +31,7 @@
 - [ ] **Group Organization**: Classify your members into custom folders/groups.
 - [ ] **Front Tracking**: Log who is in control in real-time with a precise visual history.
 - [X] **Custom Fields**: Tailor the app to your needs with dynamic fields (colors, dates, text).
-- [ ] **Simply Plural Import**: Easily migrate your existing data.
+- [X] **Simply Plural Import**: Easily migrate your existing data.
 - [X] **Privacy by Design**: Granular control over what you share with friends.
 
 ---
