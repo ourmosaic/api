@@ -6,8 +6,9 @@ import { CustomField, System, User } from '@prisma/client';
 import errorCodes from 'src/utils/errorCodes';
 import { UpdateCustomFieldDefinitionDto } from './dto/updateCustomFieldDefinition.dto';
 import { StorageService } from 'src/storage/storage.service';
-import { MINIO_BUCKET_NAME } from 'src/utils/constants';
+import { MINIO_BUCKET_NAME, MINIO_URL } from 'src/utils/constants';
 import sharp from 'sharp';
+import { UpdateSystemDto } from 'src/@generated/prisma-nestjs-dto/update-system.dto';
 
 @Injectable()
 export class SystemService {
@@ -17,6 +18,10 @@ export class SystemService {
     ) {}
 
     async createSystem(createSystemDto: CreateSystemDto, user: User) {
+        // check if user already has a system
+        if (user.isSystem) {
+            throw new BadRequestException(errorCodes.USER_ALREADY_HAS_SYSTEM);
+        }
         await this.prismaService.user.update({
             where: {
                 id: user.id
@@ -161,7 +166,14 @@ export class SystemService {
         const fileName = `avatars/systems/${system.id}/${Date.now()}.webp`;
         await this.storageService.uploadFile(MINIO_BUCKET_NAME, fileName, procImage, metadata.size, 'image/webp');
 
-        const avatarUrl = `https://storage.ourmosaic.space/${MINIO_BUCKET_NAME}/${fileName}`;
+        const avatarUrl = `${MINIO_URL}/${MINIO_BUCKET_NAME}/${fileName}`;
+
+        if (system.avatarUrl) {
+            const oldFileName = system.avatarUrl.replace(`${MINIO_URL}/${MINIO_BUCKET_NAME}/`, '');
+            await this.storageService.removeFile(MINIO_BUCKET_NAME, oldFileName).catch((err) => {
+                console.error('Error deleting old avatar from storage:', err);
+            });
+        }
 
         return await this.prismaService.system.update({
             where: {
@@ -176,4 +188,20 @@ export class SystemService {
         throw new BadRequestException(errorCodes.GIFS_NOT_SUPPORTED);
        }
     }
+
+    async updateSystemInfo(system: System, dto: Partial<UpdateSystemDto>) : Promise<System> {
+        if (dto.color && !/^#([0-9A-F]{3}){1,2}$/i.test(dto.color)) {
+            throw new BadRequestException(errorCodes.INVALID_COLOR);
+         }
+        return await this.prismaService.system.update({
+            where: {
+                id: system.id
+            },
+            data: {
+                customName: dto.customName,
+                description: dto.description,
+                color: dto.color
+            }
+        });
+    } 
 }

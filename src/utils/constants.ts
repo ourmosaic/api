@@ -1,5 +1,7 @@
 export const MINIO_BUCKET_NAME = 'mosaic';
 
+export const MINIO_URL = 'https://storage.ourmosaic.space';
+
 export const REDIS_EVENTS = {
     FRIENDSHIP_UPDATED: 'FRIENDSHIP_UPDATED',
     FRIENDSHIP_REQUEST_UPDATED: 'FRIENDSHIP_REQUEST_UPDATED',

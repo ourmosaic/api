@@ -15,7 +15,7 @@ import { UploadedFile } from '@nestjs/common';
 import { ApiForbiddenResponse, ApiOkResponse } from '@nestjs/swagger';
 import { Member as MemberEntity } from 'src/@generated/prisma-nestjs-dto/member.entity';
 import { FrontSession as FrontSessionEntity } from 'src/@generated/prisma-nestjs-dto/frontSession.entity';
-import { MINIO_BUCKET_NAME } from 'src/utils/constants';
+import { MINIO_BUCKET_NAME, MINIO_URL } from 'src/utils/constants';
 
 @Controller('system/@me/members')
 export class MembersController {
@@ -170,9 +170,18 @@ export class MembersController {
 
             const fileName = `avatars/systems/${system.id}/members/${memberId}/${Date.now()}.webp`;
 
+            // remove old avatar from storage if exists
+            const member = await this.membersService.getMemberById(memberId, system, false);
+            if (member.avatarUrl) {
+                const oldFileName = member.avatarUrl.replace(`${MINIO_URL}/${MINIO_BUCKET_NAME}/`, '');
+                await this.storageService.removeFile(MINIO_BUCKET_NAME, oldFileName).catch((err) => {
+                    console.error('Error deleting old avatar from storage:', err);
+                });
+            }
+
             await this.storageService.uploadFile(MINIO_BUCKET_NAME, fileName, procImage, metadata.size, 'image/webp');
 
-            return this.membersService.updateAvatarUrl(memberId, system, `https://storage.ourmosaic.space/${MINIO_BUCKET_NAME}/${fileName}`);
+            return this.membersService.updateAvatarUrl(memberId, system, `${MINIO_URL}/${MINIO_BUCKET_NAME}/${fileName}`);
         } catch (err) {
             if (err instanceof BadRequestException) {
                 throw err;

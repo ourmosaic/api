@@ -8,6 +8,7 @@ import { SystemInterceptor } from './system.interceptor';
 import { System as Sys } from 'src/decorators/system.decorator';
 import { UpdateCustomFieldDefinitionDto } from './dto/updateCustomFieldDefinition.dto';
 import { FileInterceptor } from '@nestjs/platform-express';
+import { UpdateSystemDto } from 'src/@generated/prisma-nestjs-dto/update-system.dto';
 
 @Controller('system')
 export class SystemController {
@@ -66,5 +67,13 @@ export class SystemController {
     @UseInterceptors(SystemInterceptor, FileInterceptor('file'))
     async updateAvatar(@Sys() system: System, @UploadedFile() file: Express.Multer.File): Promise<System> {
         return this.systemService.updateSystemAvatar(system, file);
+    }
+
+    @Patch('@me')
+    @Version('1')
+    @UseGuards(AuthGuard)
+    @UseInterceptors(SystemInterceptor)
+    async updateSystemInfo(@Sys() system: System, @Body() dto: Partial<UpdateSystemDto>): Promise<System> {
+        return this.systemService.updateSystemInfo(system, dto);
     }
 }

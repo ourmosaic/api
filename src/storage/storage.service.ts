@@ -23,4 +23,8 @@ export class StorageService {
             'Content-Type': contentType
         });
     }
+
+    async removeFile(bucket: string, fileName: string) {
+        return this.minioClient.removeObject(bucket, fileName);
+    }
 }

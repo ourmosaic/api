@@ -12,6 +12,7 @@ export default {
         [errorCodes.INVALID_ACCESS_TOKEN]: "Le token d'accès est invalide",
         [errorCodes.SYSTEM_NAME_INVALID]: "Le nom du système est invalide",
         [errorCodes.SYSTEM_DESCRIPTION_INVALID]: "La description du système est invalide",
+        [errorCodes.USER_ALREADY_HAS_SYSTEM]: "L'utilisateur a déjà un système",
         [errorCodes.USER_HAS_NO_SYSTEM]: "L'utilisateur n'a pas de système",
         [errorCodes.INVALID_MEMBER_NAME]: "Le nom du membre est invalide",
         [errorCodes.INVALID_DESCRIPTION]: "La description est invalide",
@@ -45,6 +46,7 @@ export default {
         [errorCodes.INVALID_MEMBER_ID]: "ID membre invalide",
         [errorCodes.INVALID_FRIEND_REQUEST_ID]: "ID de demande d'amitié invalide",
         [errorCodes.INVALID_ACCEPT_VALUE]: "Valeur d'acceptation invalide (doit être true ou false)",
-        [errorCodes.INVALID_FRIENDSHIP_TYPE]: "Type d'amitié invalide"
+        [errorCodes.INVALID_FRIENDSHIP_TYPE]: "Type d'amitié invalide",
+        [errorCodes.INVALID_COLOR]: "Couleur invalide (doit être un code hexadécimal)"
     }
 }
