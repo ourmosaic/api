@@ -12,8 +12,9 @@ import errorCodes from 'src/utils/errorCodes';
 import { StorageService } from 'src/storage/storage.service';
 import sharp from 'sharp';
 import { UploadedFile } from '@nestjs/common';
-import { ApiOkResponse } from '@nestjs/swagger';
+import { ApiForbiddenResponse, ApiOkResponse } from '@nestjs/swagger';
 import { Member as MemberEntity } from 'src/@generated/prisma-nestjs-dto/member.entity';
+import { FrontSession as FrontSessionEntity } from 'src/@generated/prisma-nestjs-dto/frontSession.entity';
 
 @Controller('system/members')
 export class MembersController {
@@ -26,6 +27,8 @@ export class MembersController {
     @Version('1')
     @UseGuards(AuthGuard)
     @UseInterceptors(SystemInterceptor)
+    @ApiOkResponse({ description: 'Members retrieved successfully', type: [MemberEntity] })
+    @ApiForbiddenResponse({ description: 'Forbidden.' })
     async getMembers(@Sys() system: System, @Query('withCustomFields') withCustomFields: boolean = false): Promise<Member[]> {
         return this.membersService.getMembersFor(system, withCustomFields);
     }
@@ -34,6 +37,8 @@ export class MembersController {
     @Version('1')
     @UseGuards(AuthGuard)
     @UseInterceptors(SystemInterceptor)
+    @ApiOkResponse({ description: 'Member created successfully', type: MemberEntity })
+    @ApiForbiddenResponse({ description: 'Forbidden.' })
     async createMember(@Sys() system: System, @Body() dto: CreateMemberDto): Promise<Member> {
         return this.membersService.createMember(system, dto);
     }
@@ -42,6 +47,8 @@ export class MembersController {
     @Version('1')
     @UseGuards(AuthGuard)
     @UseInterceptors(SystemInterceptor)
+    @ApiOkResponse({ description: 'Member updated successfully', type: MemberEntity })
+    @ApiForbiddenResponse({ description: 'Forbidden.' })
     async updateMember(@Sys() system: System, @Body() dto: UpdateMemberDto, @Param('id') memberId: string): Promise<Member> {
         return this.membersService.updateMember(memberId, system, dto);
     }
@@ -50,6 +57,8 @@ export class MembersController {
     @Version('1')
     @UseGuards(AuthGuard)
     @UseInterceptors(SystemInterceptor)
+    @ApiOkResponse({ description: 'Member retrieved successfully', type: MemberEntity })
+    @ApiForbiddenResponse({ description: 'Forbidden.' })
     async getMemberById(@Sys() system: System, @Param('id') memberId: string, @Query('withCustomFields') withCustomFields: boolean = false): Promise<Member> {
         return this.membersService.getMemberById(memberId, system, withCustomFields);
     }
@@ -58,6 +67,8 @@ export class MembersController {
     @Version('1')
     @UseGuards(AuthGuard)
     @UseInterceptors(SystemInterceptor)
+    @ApiOkResponse({ description: 'Member field updated successfully', type: MemberEntity })
+    @ApiForbiddenResponse({ description: 'Forbidden.' })
     async updateMemberField(@Sys() system: System, @Param('id') memberId: string, @Param('fieldId') fieldId: string, @Body() dto: UpdateFieldContentDto): Promise<Member> {
         return this.membersService.updateMemberField(memberId, system, fieldId, dto);
     }
@@ -66,6 +77,8 @@ export class MembersController {
     @Version('1')
     @UseGuards(AuthGuard)
     @UseInterceptors(SystemInterceptor)
+    @ApiOkResponse({ description: 'Front session started successfully', type: FrontSessionEntity })
+    @ApiForbiddenResponse({ description: 'Forbidden.' })
     async startFrontSession(@Sys() system: System, @Param('id') memberId: string): Promise<FrontSession> {
         return this.membersService.startFrontSessionForMember(memberId, system);
     }
@@ -74,6 +87,8 @@ export class MembersController {
     @Version('1')
     @UseGuards(AuthGuard)
     @UseInterceptors(SystemInterceptor)
+    @ApiOkResponse({ description: 'Front session ended successfully', type: FrontSessionEntity })
+    @ApiForbiddenResponse({ description: 'Forbidden.' })
     async endFrontSession(@Sys() system: System, @Param('sessionId') sessionId: string): Promise<FrontSession> {
         return this.membersService.endFrontSessionWithId(sessionId, system);
     }
@@ -82,6 +97,8 @@ export class MembersController {
     @Version('1')
     @UseGuards(AuthGuard)
     @UseInterceptors(SystemInterceptor)
+    @ApiOkResponse({ description: 'Front session ended successfully', type: FrontSessionEntity })
+    @ApiForbiddenResponse({ description: 'Forbidden.' })
     async endFrontSessionForMember(@Sys() system: System, @Param('id') memberId: string): Promise<FrontSession> {
         return this.membersService.endFrontSessionForMember(memberId, system);
     }
@@ -90,6 +107,8 @@ export class MembersController {
     @Version('1')
     @UseGuards(AuthGuard)
     @UseInterceptors(SystemInterceptor)
+    @ApiOkResponse({ description: 'Front sessions retrieved successfully', type: [FrontSessionEntity] })
+    @ApiForbiddenResponse({ description: 'Forbidden.' })
     async getFrontSessionsForMember(@Sys() system: System, @Param('id') memberId: string, @Query('limit') limit: number = 10, @Query('offset') offset: number = 0): Promise<FrontSession[]> {
         return this.membersService.getFrontSessionsForMember(memberId, system, limit, offset);
     }
@@ -98,6 +117,8 @@ export class MembersController {
     @Version('1')
     @UseGuards(AuthGuard)
     @UseInterceptors(SystemInterceptor)
+    @ApiOkResponse({ description: 'Front sessions retrieved successfully', type: [FrontSessionEntity] })
+    @ApiForbiddenResponse({ description: 'Forbidden.' })
     async getFrontSessionsForSystem(
         @Sys() system: System,
         @Query('limit') limit: number = 10,
@@ -112,6 +133,8 @@ export class MembersController {
     @Version('1')
     @UseGuards(AuthGuard)
     @UseInterceptors(SystemInterceptor)
+    @ApiOkResponse({ description: 'Groups assigned successfully', type: MemberEntity })
+    @ApiForbiddenResponse({ description: 'Forbidden.' })
     async updateMemberGroups(@Sys() system: System, @Param('id') memberId: string, @Body('groupIds') groupIds: string[]): Promise<Member> {
         return this.membersService.updateMemberGroups(memberId, system, groupIds);
     }
@@ -120,6 +143,8 @@ export class MembersController {
     @Version('1')
     @UseGuards(AuthGuard)
     @UseInterceptors(SystemInterceptor)
+    @ApiOkResponse({ description: 'Groups removed from member successfully', type: MemberEntity })
+    @ApiForbiddenResponse({ description: 'Forbidden.' })
     async deleteMemberGroups(@Sys() system: System, @Param('id') memberId: string, @Body('groupIds') groupIds: string[]): Promise<Member> {
         return this.membersService.deleteMemberGroups(memberId, system, groupIds);
     }
@@ -130,6 +155,7 @@ export class MembersController {
     @UseInterceptors(SystemInterceptor)
     @UseInterceptors(FileInterceptor('file'))
     @ApiOkResponse({ description: 'Avatar uploaded successfully', type: MemberEntity })
+    @ApiForbiddenResponse({ description: 'Forbidden.' })
     async uploadMemberAvatar(@Sys() system: System, @Param('id') memberId: string, @UploadedFile() file: Express.Multer.File): Promise<Member> {
         try {
             const metadata = await sharp(file.buffer).metadata();
