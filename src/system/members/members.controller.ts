@@ -75,4 +75,26 @@ export class MembersController {
     async endFrontSessionForMember(@Sys() system: System, @Param('id') memberId: string): Promise<FrontSession> {
         return this.membersService.endFrontSessionForMember(memberId, system);
     }
+
+    @Get(':id/front-sessions')
+    @Version('1')
+    @UseGuards(AuthGuard)
+    @UseInterceptors(SystemInterceptor)
+    async getFrontSessionsForMember(@Sys() system: System, @Param('id') memberId: string, @Query('limit') limit: number = 10, @Query('offset') offset: number = 0): Promise<FrontSession[]> {
+        return this.membersService.getFrontSessionsForMember(memberId, system, limit, offset);
+    }
+
+    @Get('front-sessions')
+    @Version('1')
+    @UseGuards(AuthGuard)
+    @UseInterceptors(SystemInterceptor)
+    async getFrontSessionsForSystem(
+        @Sys() system: System,
+        @Query('limit') limit: number = 10,
+        @Query('offset') offset: number = 0,
+        @Query('startDate') startDate: number = Date.now() - 30 * 24 * 60 * 60 * 1000,
+        @Query('endDate') endDate: number = Date.now()
+    ): Promise<FrontSession[]> {
+        return this.membersService.getFrontSessionsForSystem(system, limit, offset, startDate, endDate);
+    }
 }

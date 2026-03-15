@@ -270,4 +270,45 @@ export class MembersService {
 
         return await this.endFrontSessionWithId(activeSession.id, system);
     }
+
+    async getFrontSessionsForMember(memberId: string, system: System, limit: number, offset: number) : Promise<FrontSession[]> {
+        const member = await this.prisma.member.findUnique({
+            where: {
+                id: memberId
+            }
+        });
+
+        if (!member || member.systemId !== system.id) {
+            throw new NotFoundException(errorCodes.MEMBER_NOT_FOUND_IN_SYSTEM);
+        }
+
+        return await this.prisma.frontSession.findMany({
+            where: {
+                memberId,
+                systemId: system.id
+            },
+            orderBy: {
+                startTime: 'desc'
+            },
+            take: limit,
+            skip: offset
+        });
+    }
+    
+    async getFrontSessionsForSystem(system: System, limit: number, offset: number, startDate: number, endDate: number) : Promise<FrontSession[]> {
+        return await this.prisma.frontSession.findMany({
+            where: {
+                systemId: system.id,
+                startTime: {
+                    gte: new Date(startDate),
+                    lte: new Date(endDate)
+                }
+            },
+            orderBy: {
+                startTime: 'desc'
+            },
+            take: limit,
+            skip: offset
+        });
+    }
 }
