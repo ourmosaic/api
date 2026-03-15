@@ -6,6 +6,7 @@ import { GroupsService } from 'src/system/groups/groups.service';
 import { MembersService } from 'src/system/members/members.service';
 import { SystemService } from 'src/system/system.service';
 import { randomUUID } from 'crypto';
+import errorCodes from 'src/utils/errorCodes';
 
 @Injectable()
 export class ImportService {
@@ -24,13 +25,13 @@ export class ImportService {
         
         for (const key of requiredKeys) {
             if (!data[key]) {
-                throw new BadRequestException(`Missing required key: ${key}`);
+                throw new BadRequestException({ code: errorCodes.IMPORT_DATA_MISSING_KEY, key: key });
             }
         }
 
         const spUser = data.users[0];
         if (!spUser || !spUser.isAsystem) {
-            throw new BadRequestException('User must be a system');
+            throw new BadRequestException(errorCodes.IMPORT_DATA_INVALID_USER);
         }
 
         const system = await this.systemService.createSystem({
