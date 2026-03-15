@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, Put, Query, UseGuards, UseInterceptors, Version } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Delete, Get, Param, Patch, Post, Put, Query, UseGuards, UseInterceptors, Version } from '@nestjs/common';
 import { MembersService } from './members.service';
 import { AuthGuard } from 'src/auth/auth.guard';
 import { SystemInterceptor } from '../system.interceptor';
@@ -7,10 +7,18 @@ import type { FrontSession, Member, System } from '@prisma/client';
 import { CreateMemberDto } from './dto/createMember.dto';
 import { UpdateMemberDto } from './dto/updateMember.dto';
 import { UpdateFieldContentDto } from './dto/updateFieldContent.dto';
+import { FileInterceptor } from '@nestjs/platform-express';
+import errorCodes from 'src/utils/errorCodes';
+import { StorageService } from 'src/storage/storage.service';
+import sharp from 'sharp';
+import { UploadedFile } from '@nestjs/common';
 
 @Controller('system/members')
 export class MembersController {
-    constructor(private readonly membersService: MembersService) {} 
+    constructor(
+        private readonly membersService: MembersService,
+        private readonly storageService: StorageService
+    ) {} 
 
     @Get()
     @Version('1')
@@ -112,5 +120,35 @@ export class MembersController {
     @UseInterceptors(SystemInterceptor)
     async deleteMemberGroups(@Sys() system: System, @Param('id') memberId: string, @Body('groupIds') groupIds: string[]): Promise<Member> {
         return this.membersService.deleteMemberGroups(memberId, system, groupIds);
+    }
+
+    @Post(':id/avatar')
+    @Version('1')
+    @UseGuards(AuthGuard)
+    @UseInterceptors(SystemInterceptor)
+    @UseInterceptors(FileInterceptor('file'))
+    async uploadMemberAvatar(@Sys() system: System, @Param('id') memberId: string, @UploadedFile() file: Express.Multer.File): Promise<Member> {
+        try {
+            const metadata = await sharp(file.buffer).metadata();
+            if (!['jpeg', 'jpg', 'png', 'webp'].includes(metadata.format)) {
+                throw new BadRequestException(errorCodes.GIFS_NOT_SUPPORTED);
+            }
+            const procImage = await sharp(file.buffer)
+                .resize({ width: 512, height: 512, fit: sharp.fit.cover })
+                .webp({ quality: 80 })
+                .toBuffer();
+
+            const fileName = `avatars/${memberId}-${Date.now()}.webp`;
+
+            await this.storageService.uploadFile('mosaic', fileName, procImage);
+
+            return this.membersService.updateAvatarUrl(memberId, system, `https://storage.ourmosaic.space/mosaic/${fileName}`);
+        } catch (err) {
+            if (err instanceof BadRequestException) {
+                throw err;
+            }
+            console.error('Error uploading avatar:', err);
+            throw new BadRequestException(errorCodes.GIFS_NOT_SUPPORTED);
+        }
     }
 }

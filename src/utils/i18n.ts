@@ -34,6 +34,7 @@ export default {
         [errorCodes.GROUP_COLOR_INVALID]: "La couleur du groupe est invalide",
         [errorCodes.GROUP_PARENT_ID_INVALID]: "L'ID du groupe parent est invalide",
         [errorCodes.IMPORT_DATA_MISSING_KEY]: "Donnée d'importation manquante : {key}",
-        [errorCodes.IMPORT_DATA_INVALID_USER]: "Données d'importation invalides : l'utilisateur doit être un système"
+        [errorCodes.IMPORT_DATA_INVALID_USER]: "Données d'importation invalides : l'utilisateur doit être un système",
+        [errorCodes.GIFS_NOT_SUPPORTED]: "Les GIFs ne sont pas supportés"
     }
 }

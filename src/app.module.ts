@@ -8,6 +8,7 @@ import { AuthModule } from './auth/auth.module';
 import { JwtModule } from './jwt/jwt.module';
 import { SystemModule } from './system/system.module';
 import { ImportModule } from './import/import.module';
+import { StorageModule } from './storage/storage.module';
 
 @Module({
   imports: [
@@ -19,7 +20,8 @@ import { ImportModule } from './import/import.module';
     AuthModule,
     JwtModule,
     SystemModule,
-    ImportModule
+    ImportModule,
+    StorageModule
   ],
   controllers: [AppController],
   providers: [AppService],

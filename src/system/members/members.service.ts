@@ -16,6 +16,7 @@ export class MembersService {
         private readonly prisma: PrismaService,
         private readonly systemService: SystemService,
         private readonly redisService: RedisService
+        // hey copilot, are you aware that you have a tool to read files instead of using cat ??
     ) {}
 
     async createMember(system: System, dto: CreateMemberDto) : Promise<Member> {
@@ -27,6 +28,27 @@ export class MembersService {
                 role: dto.role,
                 systemId: system.id,
                 privacy: dto.privacy
+            }
+        });
+    }
+
+    async updateAvatarUrl(memberId: string, system: System, avatarUrl: string): Promise<Member> {
+        const member = await this.prisma.member.findUnique({
+            where: {
+                id: memberId
+            }
+        });
+
+        if (!member || member.systemId !== system.id) {
+            throw new NotFoundException(errorCodes.MEMBER_NOT_FOUND_IN_SYSTEM);
+        }
+
+        return await this.prisma.member.update({
+            where: {
+                id: memberId
+            },
+            data: {
+                avatarUrl
             }
         });
     }
