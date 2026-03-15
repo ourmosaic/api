@@ -9,6 +9,7 @@ import { FieldType } from '../dto/updateCustomFieldDefinition.dto';
 import { UpdateFieldContentDto } from './dto/updateFieldContent.dto';
 import { NotFoundError } from 'rxjs';
 import { RedisService } from 'src/redis/redis.service';
+import { REDIS_EVENTS } from 'src/utils/constants';
 
 @Injectable()
 export class MembersService {
@@ -219,8 +220,8 @@ export class MembersService {
             }
         });
 
-        await this.redisService.publish(`${system.id}-sessions`, JSON.stringify({
-            event: 'SESSION_STARTED',
+        await this.redisService.publish(`${system.id}::sessions`, JSON.stringify({
+            event: REDIS_EVENTS.FRONT_SESSION_STARTED,
             data: {
                 sessionId: frontSession.id,
                 memberId
@@ -255,8 +256,8 @@ export class MembersService {
             endTime: new Date()
         }
 
-        await this.redisService.publish(`${system.id}-sessions`, JSON.stringify({
-            event: 'SESSION_ENDED',
+        await this.redisService.publish(`${system.id}::sessions`, JSON.stringify({
+            event: REDIS_EVENTS.FRONT_SESSION_ENDED,
             data: {
                 sessionId,
                 memberId: session.memberId

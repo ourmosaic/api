@@ -35,6 +35,16 @@ export default {
         [errorCodes.GROUP_PARENT_ID_INVALID]: "L'ID du groupe parent est invalide",
         [errorCodes.IMPORT_DATA_MISSING_KEY]: "Donnée d'importation manquante : {key}",
         [errorCodes.IMPORT_DATA_INVALID_USER]: "Données d'importation invalides : l'utilisateur doit être un système",
-        [errorCodes.GIFS_NOT_SUPPORTED]: "Les GIFs ne sont pas supportés"
+        [errorCodes.GIFS_NOT_SUPPORTED]: "Les GIFs ne sont pas supportés",
+        [errorCodes.FRIENDSHIP_RECIPIENT_NOT_FOUND]: "Destinataire de l'amitié non trouvé",
+        [errorCodes.FRIENDSHIP_ALREADY_EXISTS_OR_PENDING]: "L'amitié existe déjà ou est en attente",
+        [errorCodes.FRIENDSHIP_NOT_FOUND]: "Amitié non trouvée",
+        [errorCodes.FRIENDSHIP_REQUEST_NOT_FOUND]: "Demande d'amitié non trouvée",
+        [errorCodes.INVALID_USER_ID]: "ID utilisateur invalide",
+        [errorCodes.INVALID_SYSTEM_ID]: "ID système invalide",
+        [errorCodes.INVALID_MEMBER_ID]: "ID membre invalide",
+        [errorCodes.INVALID_FRIEND_REQUEST_ID]: "ID de demande d'amitié invalide",
+        [errorCodes.INVALID_ACCEPT_VALUE]: "Valeur d'acceptation invalide (doit être true ou false)",
+        [errorCodes.INVALID_FRIENDSHIP_TYPE]: "Type d'amitié invalide"
     }
 }

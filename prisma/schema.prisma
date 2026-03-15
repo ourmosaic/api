@@ -45,6 +45,11 @@ enum CustomFieldType {
   NUMBER
 }
 
+enum FriendshipType {
+  FRIENDS
+  SUPERFRIENDS
+}
+
 model User {
   id                      String    @id @default(uuid())
   username                String    @unique
@@ -167,6 +172,7 @@ model Friendship {
   id        String            @id @default(uuid())
   status    FriendshipStatus  @default(PENDING)
   createdAt DateTime          @default(now())
+  type      FriendshipType    @default(FRIENDS)
 
   // sender
   userOneId String

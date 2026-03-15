@@ -9,6 +9,7 @@ import { JwtModule } from './jwt/jwt.module';
 import { SystemModule } from './system/system.module';
 import { ImportModule } from './import/import.module';
 import { StorageModule } from './storage/storage.module';
+import { FriendshipModule } from './friendship/friendship.module';
 
 @Module({
   imports: [
@@ -21,7 +22,8 @@ import { StorageModule } from './storage/storage.module';
     JwtModule,
     SystemModule,
     ImportModule,
-    StorageModule
+    StorageModule,
+    FriendshipModule
   ],
   controllers: [AppController],
   providers: [AppService],
