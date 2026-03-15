@@ -17,7 +17,7 @@ import { Member as MemberEntity } from 'src/@generated/prisma-nestjs-dto/member.
 import { FrontSession as FrontSessionEntity } from 'src/@generated/prisma-nestjs-dto/frontSession.entity';
 import { MINIO_BUCKET_NAME } from 'src/utils/constants';
 
-@Controller('system/members')
+@Controller('system/@me/members')
 export class MembersController {
     constructor(
         private readonly membersService: MembersService,

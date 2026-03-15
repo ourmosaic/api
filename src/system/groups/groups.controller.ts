@@ -6,7 +6,7 @@ import { System as Sys } from 'src/decorators/system.decorator';
 import type { System } from '@prisma/client';
 import { CreateGroupDto } from './dto/createGroup.dto';
 
-@Controller('system/groups')
+@Controller('system/@me/groups')
 export class GroupsController {
     constructor(
         private groupsService: GroupsService

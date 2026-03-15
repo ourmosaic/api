@@ -15,7 +15,7 @@ export class StorageService {
             useSSL: this.configService.get('MINIO_USE_SSL') === 'true',
             accessKey: this.configService.get<string>('MINIO_ACCESS_KEY')!,
             secretKey: this.configService.get<string>('MINIO_SECRET_KEY')!
-        })
+        });
     }
 
     async uploadFile(bucket: string, fileName: string, file: Buffer, size?: number, contentType?: string) : Promise<UploadedObjectInfo> {
