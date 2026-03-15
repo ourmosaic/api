@@ -12,6 +12,8 @@ import errorCodes from 'src/utils/errorCodes';
 import { StorageService } from 'src/storage/storage.service';
 import sharp from 'sharp';
 import { UploadedFile } from '@nestjs/common';
+import { ApiOkResponse } from '@nestjs/swagger';
+import { Member as MemberEntity } from 'src/@generated/prisma-nestjs-dto/member.entity';
 
 @Controller('system/members')
 export class MembersController {
@@ -127,6 +129,7 @@ export class MembersController {
     @UseGuards(AuthGuard)
     @UseInterceptors(SystemInterceptor)
     @UseInterceptors(FileInterceptor('file'))
+    @ApiOkResponse({ description: 'Avatar uploaded successfully', type: MemberEntity })
     async uploadMemberAvatar(@Sys() system: System, @Param('id') memberId: string, @UploadedFile() file: Express.Multer.File): Promise<Member> {
         try {
             const metadata = await sharp(file.buffer).metadata();
