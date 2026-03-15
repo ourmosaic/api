@@ -7,12 +7,15 @@ import { MembersService } from 'src/system/members/members.service';
 import { SystemService } from 'src/system/system.service';
 import { randomUUID } from 'crypto';
 import errorCodes from 'src/utils/errorCodes';
+import axios from 'axios';
+import sharp from 'sharp';
+import { StorageService } from 'src/storage/storage.service';
 
 @Injectable()
 export class ImportService {
     constructor(
         private readonly prisma: PrismaService,
-        private readonly membersService: MembersService,
+        private readonly storageService: StorageService,
         private readonly systemService: SystemService,
         private readonly groupsService: GroupsService
     ) {}
@@ -107,6 +110,23 @@ export class ImportService {
             let avatarUrl : string | undefined = undefined;
             if (member.avatarUuid) {
                 avatarUrl = `https://spaces.apparyllis.com/avatars/${member.uid}/${member.avatarUuid}`;
+            }
+
+            if (avatarUrl) {
+                try {
+                    const response = await axios.get(avatarUrl, { responseType: 'arraybuffer' });
+                    const buffer = Buffer.from(response.data, 'binary');
+                    const optimizedBuffer = await sharp(buffer)
+                        .resize(512, 512, { fit: 'inside' })
+                        .toFormat('webp', { quality: 80 })
+                        .toBuffer();
+                    const fileName = `avatars/${newMemberId}-${Date.now()}.webp`;
+                    await this.storageService.uploadFile('mosaic', fileName, optimizedBuffer);
+                    avatarUrl = `https://storage.ourmosaic.space/mosaic/${fileName}`;
+                } catch (error) {
+                    console.error(`Failed to upload avatar for member ${member.name}:`, error);
+                    avatarUrl = undefined;
+                }
             }
 
             membersToCreate.push({
