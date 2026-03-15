@@ -52,6 +52,7 @@ model System {
   customName  String?
   avatarUrl   String?
   description String?
+  color       String?
 
   userId      String  @unique
   user        User    @relation(fields: [userId], references: [id], onDelete: Cascade)

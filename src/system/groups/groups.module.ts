@@ -9,6 +9,7 @@ import { AuthModule } from 'src/auth/auth.module';
 @Module({
   imports: [MembersModule, forwardRef(() => SystemModule), PrismaModule, AuthModule],
   providers: [GroupsService],
-  controllers: [GroupsController]
+  controllers: [GroupsController],
+  exports: [GroupsService]
 })
 export class GroupsModule {}
