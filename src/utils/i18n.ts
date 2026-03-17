@@ -47,6 +47,8 @@ export default {
         [errorCodes.INVALID_FRIEND_REQUEST_ID]: "ID de demande d'amitié invalide",
         [errorCodes.INVALID_ACCEPT_VALUE]: "Valeur d'acceptation invalide (doit être true ou false)",
         [errorCodes.INVALID_FRIENDSHIP_TYPE]: "Type d'amitié invalide",
-        [errorCodes.INVALID_COLOR]: "Couleur invalide (doit être un code hexadécimal)"
+        [errorCodes.INVALID_COLOR]: "Couleur invalide (doit être un code hexadécimal)",
+        [errorCodes.INVALID_FRIEND_REQUEST]: "Requête d'amitié invalide (doit inclure soit recipientId, soit username et federationUrl)",
+        [errorCodes.CANNOT_FRIEND_SELF]: "Vous ne pouvez pas vous ajouter en ami"
     }
 }

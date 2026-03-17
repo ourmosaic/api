@@ -11,6 +11,7 @@ import { ImportModule } from './import/import.module';
 import { StorageModule } from './storage/storage.module';
 import { FriendshipModule } from './friendship/friendship.module';
 import { UsersModule } from './users/users.module';
+import { FederationModule } from './federation/federation.module';
 
 @Module({
   imports: [
@@ -25,7 +26,8 @@ import { UsersModule } from './users/users.module';
     ImportModule,
     StorageModule,
     FriendshipModule,
-    UsersModule
+    UsersModule,
+    FederationModule
   ],
   controllers: [AppController],
   providers: [AppService],

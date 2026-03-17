@@ -1,28 +1,49 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, Inject, forwardRef } from '@nestjs/common';
 import { FriendshipStatus, FriendshipType, type User as UserType } from '@prisma/client';
+import { FederationMessageType, FriendRequestMessage } from 'src/federation/federationDef';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { RedisService } from 'src/redis/redis.service';
 import { REDIS_EVENTS } from 'src/utils/constants';
 import errorCodes from 'src/utils/errorCodes';
+import { SendRequestDto } from './dto/sendRequest.dto';
+import { FederationService } from 'src/federation/federation.service';
 
 @Injectable()
 export class FriendshipService {
     constructor(
         private readonly prisma: PrismaService,
         private readonly redis: RedisService,
+        @Inject(forwardRef(() => FederationService))
+        private readonly federationService: FederationService
     ) {}
 
-    async sendFriendRequest(sender: UserType, recipientId: string) {
-        const recipient = await this.prisma.user.findUnique({ where: { id: recipientId } });
-        if (!recipient) {
-            throw new BadRequestException(errorCodes.FRIENDSHIP_RECIPIENT_NOT_FOUND);
+    async sendFriendRequest(sender: UserType, dto: SendRequestDto) {
+        if (!dto.recipientId) {
+            if (!dto.federationUrl || !dto.username) {
+                throw new BadRequestException(errorCodes.INVALID_FRIEND_REQUEST);
+            }
+            const message: FriendRequestMessage = {
+                type: FederationMessageType.FRIEND_REQUEST,
+                timestamp: Date.now(),
+                senderUsername: sender.username,
+                recipientUsername: dto.username,
+                targetFederation: dto.federationUrl
+            };
+            await this.federationService.enqueueMessage(message);
+            return { message: 'Friend request sent to federation. Awaiting response...' };
         }
-
+        if (dto.recipientId === sender.id) {
+            throw new BadRequestException(errorCodes.CANNOT_FRIEND_SELF);
+        }
+        const recipient = await this.prisma.user.findUnique({ where: { id: dto.recipientId } });
+        if (!recipient) {
+            throw new BadRequestException(errorCodes.INVALID_USER_ID);
+        }
         const existingRelation = await this.prisma.friendship.findFirst({
             where: {
                 OR: [
-                    { userOneId: sender.id, userTwoId: recipientId, status: { in: [FriendshipStatus.PENDING, FriendshipStatus.ACCEPTED] } },
-                    { userOneId: recipientId, userTwoId: sender.id, status: { in: [FriendshipStatus.PENDING, FriendshipStatus.ACCEPTED] } }
+                    { userOneId: sender.id, userTwoId: dto.recipientId, status: { in: [FriendshipStatus.PENDING, FriendshipStatus.ACCEPTED] } },
+                    { userOneId: dto.recipientId, userTwoId: sender.id, status: { in: [FriendshipStatus.PENDING, FriendshipStatus.ACCEPTED] } }
                 ]
             }
         });
@@ -32,11 +53,11 @@ export class FriendshipService {
         const request = await this.prisma.friendship.create({
             data: {
                 userOneId: sender.id,
-                userTwoId: recipientId,
+                userTwoId: dto.recipientId!,
                 status: FriendshipStatus.PENDING
             }
         });
-        await this.redis.publish(`user:${recipientId}:friendRequests`, JSON.stringify({ type: REDIS_EVENTS.NEW_FRIEND_REQUEST, request }));
+        await this.redis.publish(`user:${dto.recipientId}:friendRequests`, JSON.stringify({ type: REDIS_EVENTS.NEW_FRIEND_REQUEST, request }));
         return request;
     }
 

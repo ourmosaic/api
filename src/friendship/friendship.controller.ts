@@ -16,7 +16,7 @@ export class FriendshipController {
     @Version('1')
     @UseGuards(AuthGuard)
     async sendFriendRequest(@CurrentUser() user: User, @Body() dto: SendRequestDto) {
-        return this.friendshipService.sendFriendRequest(user, dto.recipientId);
+        return this.friendshipService.sendFriendRequest(user, dto);
     }
 
     @Post('respond')

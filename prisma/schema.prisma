@@ -57,6 +57,7 @@ model User {
   password                String
   createdAt               DateTime  @default(now())
   updatedAt               DateTime  @updatedAt
+  domain                  String?
 
   isSystem                Boolean   @default(false) // Permet de savoir rapidement si l'utilisateur est un système
   system                  System?
@@ -71,6 +72,7 @@ model System {
   avatarUrl   String?
   description String?
   color       String?
+  domain      String?
 
   userId      String  @unique
   user        User    @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -88,6 +90,7 @@ model Member {
   avatarUrl         String?
   role              String?
   description       String?
+  domain            String?
   privacy           PrivacyLevel  @default(PRIVATE)
   createdAt         DateTime      @default(now())
   updatedAt         DateTime      @updatedAt
@@ -105,6 +108,7 @@ model Group {
   name      String
   color     String?
   icon      String?
+  domain    String?
   createdAt DateTime  @default(now())
 
   parentId  String?   @default("root")
