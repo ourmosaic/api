@@ -22,6 +22,9 @@ export class ImportService {
     ) {}
 
     async importFromSimplyPlural(user: User, data: any) {
+        if (!data || typeof data !== 'object') {
+            throw new BadRequestException();
+        }
         const requiredKeys = [
             'customFields', 'users', 'notes', 'members', 'privateFront', 
             'comments', 'chatMessages', 'groups', 'privacyBuckets', 'frontHistory'
@@ -253,6 +256,63 @@ export class ImportService {
 
         if (frontSessionsToCreate.length > 0) {
             await this.prisma.frontSession.createMany({ data: frontSessionsToCreate });
+        }
+
+        const channelCategoriesToCreate: any[] = [];
+        const channelsToCreate: any[] = [];
+        const chatMessagesToCreate: any[] = [];
+        const channelIdMap: Record<string, string> = {};
+        const categoryIdMap: Record<string, string> = {};
+        const channelCategoryMap: Record<string, any> = {};
+
+        for (const category of data.channelCategories) {
+            const newCategoryId = randomUUID();
+            categoryIdMap[category._id] = newCategoryId;
+            channelCategoriesToCreate.push({
+                id: newCategoryId,
+                name: category.name,
+                desc: category.desc,
+                systemId: system.id
+            });
+            for (const channel of category.channels) {
+                channelCategoryMap[channel] = category._id;
+            }
+        }
+
+        for (const channel of data.channels) {
+            const newChannelId = randomUUID();
+            channelIdMap[channel._id] = newChannelId;
+            channelsToCreate.push({
+                id: newChannelId,
+                name: channel.name,
+                description: channel.desc,
+                categoryId: channelCategoryMap[channel._id] ? categoryIdMap[channelCategoryMap[channel._id]] : null,
+                systemId: system.id
+            });
+        }
+
+        for (const message of data.chatMessages) {
+            const mappedMemberId = memberIdMap[message.writer];
+            const mappedChannelId = channelIdMap[message.channel];
+            if (!mappedMemberId || !mappedChannelId) continue;
+
+            chatMessagesToCreate.push({
+                id: randomUUID(),
+                content: message.message,
+                timestamp: new Date(message.writtenAt),
+                senderId: mappedMemberId,
+                channelId: mappedChannelId
+            });
+        }
+
+        if (channelCategoriesToCreate.length > 0) {
+            await this.prisma.channelCategory.createMany({ data: channelCategoriesToCreate });
+        }
+        if (channelsToCreate.length > 0) {
+            await this.prisma.channel.createMany({ data: channelsToCreate });
+        }
+        if (chatMessagesToCreate.length > 0) {
+            await this.prisma.chatMessage.createMany({ data: chatMessagesToCreate });
         }
 
         return this.systemService.getSystemById(system.id);

@@ -81,6 +81,10 @@ model System {
   groups        Group[]
   frontSessions FrontSession[]
   customFields  CustomField[]
+
+  channels Channel[]
+
+  channelCategories ChannelCategory[]
 }
 
 model Member {
@@ -101,6 +105,8 @@ model Member {
   frontSessions     FrontSession[]
   groups            MemberOnGroups[]
   customFieldValues CustomFieldValue[]
+
+  chatMessages ChatMessage[]
 }
 
 model Group {
@@ -170,6 +176,43 @@ model CustomFieldValue {
   customField   CustomField @relation(fields: [customFieldId], references: [id], onDelete: Cascade)
 
   @@unique([memberId, customFieldId])
+}
+
+model ChannelCategory {
+  id    String  @id @default(uuid())
+  name  String
+  desc  String?
+
+  systemId  String
+  system    System    @relation(fields: [systemId], references: [id], onDelete: Cascade)
+
+  channels Channel[]
+}
+
+model Channel {
+  id          String  @id @default(uuid())
+  name        String
+  description String?
+  categoryId  String?
+
+  category    ChannelCategory? @relation(fields: [categoryId], references: [id])
+
+  systemId  String
+  system    System    @relation(fields: [systemId], references: [id], onDelete: Cascade)
+
+  chatMessages ChatMessage[]
+}
+
+model ChatMessage {
+  id        String    @id @default(uuid())
+  content   String
+  timestamp DateTime  @default(now())
+
+  senderId  String
+  sender    Member    @relation(fields: [senderId], references: [id], onDelete: Cascade)
+
+  channelId String
+  channel   Channel   @relation(fields: [channelId], references: [id], onDelete: Cascade)
 }
 
 model Friendship {
