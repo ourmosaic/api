@@ -12,6 +12,8 @@ import sharp from 'sharp';
 import { StorageService } from 'src/storage/storage.service';
 import { MINIO_BUCKET_NAME, MINIO_URL } from 'src/utils/constants';
 
+const BATCH_SIZE = 1000;
+
 @Injectable()
 export class ImportService {
     constructor(
@@ -92,8 +94,8 @@ export class ImportService {
             customFieldIdMap[fieldIdToNameMap[field._id]] = newFieldId;
         }
 
-        if (customFieldsToCreate.length > 0) {
-            await this.prisma.customField.createMany({ data: customFieldsToCreate });
+        for (let i = 0; i < customFieldsToCreate.length; i += BATCH_SIZE) {
+            await this.prisma.customField.createMany({ data: customFieldsToCreate.slice(i, i + BATCH_SIZE) });
         }
 
         const privacyBucketMap: Record<string, PrivacyLevel> = {};
@@ -163,11 +165,11 @@ export class ImportService {
             }
         }
 
-        if (membersToCreate.length > 0) {
-            await this.prisma.member.createMany({ data: membersToCreate });
+        for (let i = 0; i < membersToCreate.length; i += BATCH_SIZE) {
+            await this.prisma.member.createMany({ data: membersToCreate.slice(i, i + BATCH_SIZE) });
         }
-        if (customFieldValuesToCreate.length > 0) {
-            await this.prisma.customFieldValue.createMany({ data: customFieldValuesToCreate });
+        for (let i = 0; i < customFieldValuesToCreate.length; i += BATCH_SIZE) {
+            await this.prisma.customFieldValue.createMany({ data: customFieldValuesToCreate.slice(i, i + BATCH_SIZE) });
         }
 
         const groupIdMap: Record<string, string> = {};
@@ -229,12 +231,12 @@ export class ImportService {
             }
         }
 
-        if (groupsToInsert.length > 0) {
-            await this.prisma.group.createMany({ data: groupsToInsert });
+        for (let i = 0; i < groupsToInsert.length; i += BATCH_SIZE) {
+            await this.prisma.group.createMany({ data: groupsToInsert.slice(i, i + BATCH_SIZE) });
         }
-        if (memberOnGroupsToCreate.length > 0) {
+        for (let i = 0; i < memberOnGroupsToCreate.length; i += BATCH_SIZE) {
             await this.prisma.memberOnGroups.createMany({ 
-                data: memberOnGroupsToCreate, 
+                data: memberOnGroupsToCreate.slice(i, i + BATCH_SIZE), 
                 skipDuplicates: true 
             });
         }
@@ -254,8 +256,8 @@ export class ImportService {
             });
         }
 
-        if (frontSessionsToCreate.length > 0) {
-            await this.prisma.frontSession.createMany({ data: frontSessionsToCreate });
+        for (let i = 0; i < frontSessionsToCreate.length; i += BATCH_SIZE) {
+            await this.prisma.frontSession.createMany({ data: frontSessionsToCreate.slice(i, i + BATCH_SIZE) });
         }
 
         const channelCategoriesToCreate: any[] = [];
@@ -305,14 +307,14 @@ export class ImportService {
             });
         }
 
-        if (channelCategoriesToCreate.length > 0) {
-            await this.prisma.channelCategory.createMany({ data: channelCategoriesToCreate });
+        for (let i = 0; i < channelCategoriesToCreate.length; i += BATCH_SIZE) {
+            await this.prisma.channelCategory.createMany({ data: channelCategoriesToCreate.slice(i, i + BATCH_SIZE) });
         }
-        if (channelsToCreate.length > 0) {
-            await this.prisma.channel.createMany({ data: channelsToCreate });
+        for (let i = 0; i < channelsToCreate.length; i += BATCH_SIZE) {
+            await this.prisma.channel.createMany({ data: channelsToCreate.slice(i, i + BATCH_SIZE) });
         }
-        if (chatMessagesToCreate.length > 0) {
-            await this.prisma.chatMessage.createMany({ data: chatMessagesToCreate });
+        for (let i = 0; i < chatMessagesToCreate.length; i += BATCH_SIZE) {
+            await this.prisma.chatMessage.createMany({ data: chatMessagesToCreate.slice(i, i + BATCH_SIZE) });
         }
 
         return this.systemService.getSystemById(system.id);
