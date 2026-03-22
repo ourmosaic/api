@@ -107,6 +107,9 @@ model Member {
   customFieldValues CustomFieldValue[]
 
   chatMessages ChatMessage[]
+
+  boardMessagesSent BoardMessage[] @relation("BoardMessageFrom")
+  boardMessagesReceived BoardMessage[] @relation("BoardMessageTo")
 }
 
 model Group {
@@ -213,6 +216,19 @@ model ChatMessage {
 
   channelId String
   channel   Channel   @relation(fields: [channelId], references: [id], onDelete: Cascade)
+}
+
+model BoardMessage {
+  id        String    @id @default(uuid())
+  content   String
+  timestamp DateTime  @default(now())
+  read      Boolean   @default(false)
+
+  fromId    String
+  from      Member    @relation("BoardMessageFrom", fields: [fromId], references: [id], onDelete: Cascade)
+
+  toId      String
+  to        Member    @relation("BoardMessageTo", fields: [toId], references: [id], onDelete: Cascade)
 }
 
 model Friendship {

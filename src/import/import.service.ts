@@ -317,6 +317,27 @@ export class ImportService {
             await this.prisma.chatMessage.createMany({ data: chatMessagesToCreate.slice(i, i + BATCH_SIZE) });
         }
 
+        const boardMessagesToCreate: any[] = [];
+        for (const message of data.boardMessages) {
+            const mappedSenderId = memberIdMap[message.writtenBy];
+            const mappedReceiverId = memberIdMap[message.writtenFor];
+            const hasBeenRead = message.read;
+            const createdAt = new Date(message.writtenAt);
+            if (!mappedSenderId || !mappedReceiverId) continue;
+            boardMessagesToCreate.push({
+                id: randomUUID(),
+                content: message.message,
+                timestamp: createdAt,
+                fromId: mappedSenderId,
+                toId: mappedReceiverId,
+                read: hasBeenRead
+            });
+        }
+
+        for (let i = 0; i < boardMessagesToCreate.length; i += BATCH_SIZE) {
+            await this.prisma.boardMessage.createMany({ data: boardMessagesToCreate.slice(i, i + BATCH_SIZE) });
+        }
+
         return this.systemService.getSystemById(system.id);
     }
 }
