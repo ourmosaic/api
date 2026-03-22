@@ -29,6 +29,7 @@ export class FederationProcessor extends WorkerHost {
                     timeout: 10000
                 }
             );
+            console.log(`Received response from ${message.targetFederation}:`, response.data);
             return response.data;
         } catch (error) {
             this.logger.error(`Failed to send message to ${message.targetFederation}: ${error.message}`);
