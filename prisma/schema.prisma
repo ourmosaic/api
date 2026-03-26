@@ -57,6 +57,7 @@ model User {
   password                String
   createdAt               DateTime  @default(now())
   updatedAt               DateTime  @updatedAt
+  isFederated             Boolean   @default(false)
   domain                  String?
 
   isSystem                Boolean   @default(false) // Permet de savoir rapidement si l'utilisateur est un système
@@ -229,6 +230,13 @@ model BoardMessage {
 
   toId      String
   to        Member    @relation("BoardMessageTo", fields: [toId], references: [id], onDelete: Cascade)
+}
+
+model KnownFederation {
+  id        String    @id @default(uuid())
+  url       String    @unique
+  publicKey String
+  createdAt DateTime  @default(now())
 }
 
 model Friendship {

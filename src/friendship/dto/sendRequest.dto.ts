@@ -11,6 +11,6 @@ export class SendRequestDto {
     username?: string;
 
     @IsOptional()
-    @IsUrl()
+    @IsString()
     federationUrl?: string;
 }
