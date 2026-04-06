@@ -173,15 +173,19 @@ export class FederationService {
       );
       throw new BadRequestException('Missing nonce in federation message');
     }
-    if (
-      await this.redis.sismember('processedFederationNonces', message.nonce)
-    ) {
+    const isNewNonce = await this.redis.set(
+      'federation:nonce:' + message.nonce,
+      '1',
+      'EX',
+      300,
+      'NX',
+    );
+    if (!isNewNonce) {
       this.logger.warn(
-        `Received message with nonce ${message.nonce} which has already been processed. Possible replay attack. Rejecting message.`,
+        `Received message with nonce ${message.nonce} which has already been seen. Possible replay attack. Rejecting message.`,
       );
-      throw new BadRequestException('Message nonce has already been processed');
+      throw new BadRequestException('Replay attack: nonce already used');
     }
-    await this.redis.sadd('processedFederationNonces', message.nonce);
     const senderFederation = senderFederationWithProto.replace(
       /^https?:\/\//,
       '',
