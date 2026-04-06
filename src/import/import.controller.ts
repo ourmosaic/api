@@ -2,12 +2,13 @@ import {
   Body,
   Controller,
   Post,
-  Req,
   UseGuards,
   Version,
 } from '@nestjs/common';
 import { AuthGuard } from 'src/auth/auth.guard';
 import { ImportService } from './import.service';
+import { CurrentUser } from '../decorators/current-user.decorator';
+import { User } from '../@generated/prisma-nestjs-dto/user.entity';
 
 @Controller('import')
 export class ImportController {
@@ -16,7 +17,7 @@ export class ImportController {
   @Post('simplyplural')
   @UseGuards(AuthGuard)
   @Version('1')
-  async importFromSimplyPlural(@Body() data: any, @Req() req: any) {
-    return this.importService.importFromSimplyPlural(req.user, data);
+  async importFromSimplyPlural(@Body() data: any, @CurrentUser() user: User) {
+    return this.importService.importFromSimplyPlural(user, data);
   }
 }
