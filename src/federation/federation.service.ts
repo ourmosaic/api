@@ -24,6 +24,7 @@ import { InjectQueue } from '@nestjs/bullmq';
 import { ConfigService } from '@nestjs/config';
 import axios from 'axios';
 import { Queue } from 'bullmq';
+import stringify from 'fast-json-stable-stringify';
 
 @Injectable()
 export class FederationService {
@@ -104,7 +105,7 @@ export class FederationService {
   }
 
   signMessage(message: AnyFederationMessage): string {
-    const messageString = JSON.stringify(message);
+    const messageString = stringify(message);
     const signer = crypto.createSign('RSA-SHA256');
     signer.update(messageString);
     signer.end();
@@ -116,10 +117,7 @@ export class FederationService {
     signature: string,
     senderPublicKey: string,
   ): boolean {
-    // we need to remove message.signature before verifying, otherwise the signature will always be invalid
-    const messageWithoutSignature = { ...message };
-    delete messageWithoutSignature.signature;
-    const messageString = JSON.stringify(messageWithoutSignature);
+    const messageString = stringify(message);
     const verifier = crypto.createVerify('RSA-SHA256');
     verifier.update(messageString);
     verifier.end();
@@ -138,14 +136,27 @@ export class FederationService {
       removeOnFail: false,
     });
     this.logger.log(
-      `Enqueued message for ${message.targetFederation} : ${JSON.stringify(message)}`,
+      `Enqueued message for ${message.targetFederation} : ${stringify(message)}`,
     );
   }
 
   async receiveMessage(
     message: AnyFederationMessage,
     senderFederationWithProto: string,
+    signature: string,
   ) {
+    if (!message || !senderFederationWithProto || !signature) {
+      this.logger.warn(
+        `Received invalid message. Missing required fields. Message: ${stringify(
+          message,
+        )}, Sender Federation: ${senderFederationWithProto}, Signature: ${
+          signature || 'None'
+        }`,
+      );
+      throw new BadRequestException(
+        'Missing required fields in federation message',
+      );
+    }
     this.logger.debug(
       `Received message of type ${message.type} from ${senderFederationWithProto} at ${message.timestamp}`,
     );
@@ -163,7 +174,7 @@ export class FederationService {
       );
       try {
         const response = await axios.get<{ publicKey?: string }>(
-          `http://${senderFederation}/federation/info`,
+          `https://${senderFederation}/federation/info`,
           { timeout: 5000 },
         );
         const senderPublicKey = response.data.publicKey;
@@ -176,7 +187,6 @@ export class FederationService {
           );
         }
 
-        // CHECK IF THIS IS A VALID RSA PUBLIC KEY
         try {
           crypto.createPublicKey(senderPublicKey);
         } catch (error: unknown) {
@@ -222,9 +232,7 @@ export class FederationService {
         'Public key for sender federation is not available',
       );
     }
-    if (
-      !this.verifyMessageIntegrity(message, message.signature!, senderPublicKey)
-    ) {
+    if (!this.verifyMessageIntegrity(message, signature, senderPublicKey)) {
       this.logger.warn(
         `Message signature verification failed for message from ${senderFederation}. Possible tampering detected.`,
       );
@@ -235,7 +243,6 @@ export class FederationService {
     );
     switch (message.type) {
       case FederationMessageType.FRIEND_REQUEST: {
-        // change message to FriendRequestMessage type
         const friendRequestMessage: FriendRequestMessage = message;
         this.logger.debug(
           `Processing friend request from ${friendRequestMessage.senderUsername} to ${friendRequestMessage.recipientUsername} via federation ${senderFederation}`,

@@ -25,7 +25,12 @@ export class FederationController {
   async receiveMessage(
     @Body() message: AnyFederationMessage,
     @Headers('X-Federation-Uri') senderFederation: string,
+    @Headers('X-Federation-Signature') signature: string,
   ) {
-    return this.federationService.receiveMessage(message, senderFederation);
+    return this.federationService.receiveMessage(
+      message,
+      senderFederation,
+      signature,
+    );
   }
 }

@@ -15,6 +15,8 @@ export class FederationProcessor extends WorkerHost {
 
   async process(job: Job<AnyFederationMessage>): Promise<any> {
     const message = job.data;
+    const signature = message.signature;
+    delete message.signature;
     this.logger.debug(
       `Processing outgoing federation message of type ${message.type} to ${message.targetFederation}`,
     );
@@ -30,6 +32,7 @@ export class FederationProcessor extends WorkerHost {
             'Content-Type': 'application/json',
             'X-Federation-Uri':
               this.configService.get<string>('INSTANCE_ADDR')!,
+            'X-Federation-Signature': signature,
           },
           timeout: 10000,
         },
