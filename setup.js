@@ -174,7 +174,7 @@ JWT_ACCESS_SECRET=${jwtAccessSecret}
 JWT_REFRESH_SECRET=${jwtRefreshSecret}
 `;
 
-    fs.writeFileSync(path.join(__dirname, 'setup.env'), envContent);
+    fs.writeFileSync(path.join(__dirname, '.env'), envContent);
     spinner.succeed(selectedLocale.setupComplete);
     
     const keysSpinner = ora.default({spinner: ora.spinners.dots}).start(selectedLocale.generatingKeys);
