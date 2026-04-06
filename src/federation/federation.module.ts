@@ -27,15 +27,15 @@ import { FederationProcessor } from './federation.processor';
     BullModule.forRoot({
       connection: {
         host: process.env.REDIS_HOST || 'localhost',
-        port: parseInt(process.env.REDIS_PORT || '6380')
-      }
+        port: parseInt(process.env.REDIS_PORT || '6380'),
+      },
     }),
     BullModule.registerQueue({
-      name: 'federation_outgoing'
-    })
+      name: 'federation_outgoing',
+    }),
   ],
   providers: [FederationService, FederationProcessor],
   controllers: [FederationController],
-  exports: [FederationService]
+  exports: [FederationService],
 })
 export class FederationModule {}

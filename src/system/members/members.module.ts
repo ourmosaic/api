@@ -8,9 +8,15 @@ import { RedisModule } from 'src/redis/redis.module';
 import { StorageModule } from 'src/storage/storage.module';
 
 @Module({
-  imports: [forwardRef(() => SystemModule), PrismaModule, AuthModule, RedisModule, StorageModule],
+  imports: [
+    forwardRef(() => SystemModule),
+    PrismaModule,
+    AuthModule,
+    RedisModule,
+    StorageModule,
+  ],
   controllers: [MembersController],
   providers: [MembersService],
-  exports: [MembersService]
+  exports: [MembersService],
 })
 export class MembersModule {}

@@ -7,9 +7,14 @@ import { RedisModule } from 'src/redis/redis.module';
 import { FederationModule } from 'src/federation/federation.module';
 
 @Module({
-  imports: [PrismaModule, AuthModule, RedisModule, forwardRef(() => FederationModule)],
+  imports: [
+    PrismaModule,
+    AuthModule,
+    RedisModule,
+    forwardRef(() => FederationModule),
+  ],
   providers: [FriendshipService],
   controllers: [FriendshipController],
-  exports: [FriendshipService]
+  exports: [FriendshipService],
 })
 export class FriendshipModule {}

@@ -5,6 +5,6 @@ import { SubscriberModule } from './subscriber/subscriber.module';
 @Module({
   providers: [RedisService],
   exports: [RedisService],
-  imports: [SubscriberModule]
+  imports: [SubscriberModule],
 })
 export class RedisModule {}

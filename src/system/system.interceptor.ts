@@ -1,4 +1,10 @@
-import { Injectable, NestInterceptor, ExecutionContext, CallHandler, UnauthorizedException } from '@nestjs/common';
+import {
+  Injectable,
+  NestInterceptor,
+  ExecutionContext,
+  CallHandler,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import errorCodes from 'src/utils/errorCodes';
 
@@ -10,7 +16,7 @@ export class SystemInterceptor implements NestInterceptor {
     const request = context.switchToHttp().getRequest();
     if (request.user?.id) {
       const system = await this.prisma.system.findUnique({
-        where: { userId: request.user.id }
+        where: { userId: request.user.id },
       });
 
       if (!system) {

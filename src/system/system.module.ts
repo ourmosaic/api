@@ -8,9 +8,15 @@ import { GroupsModule } from './groups/groups.module';
 import { StorageModule } from 'src/storage/storage.module';
 
 @Module({
-  imports: [PrismaModule, AuthModule, forwardRef(() => MembersModule), forwardRef(() => GroupsModule), StorageModule],
+  imports: [
+    PrismaModule,
+    AuthModule,
+    forwardRef(() => MembersModule),
+    forwardRef(() => GroupsModule),
+    StorageModule,
+  ],
   providers: [SystemService],
   controllers: [SystemController],
-  exports: [SystemService]
+  exports: [SystemService],
 })
 export class SystemModule {}

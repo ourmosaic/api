@@ -8,8 +8,14 @@ import { GroupsModule } from 'src/system/groups/groups.module';
 import { StorageModule } from 'src/storage/storage.module';
 
 @Module({
-  imports: [PrismaModule, SystemModule, GroupsModule, StorageModule, AuthModule],
+  imports: [
+    PrismaModule,
+    SystemModule,
+    GroupsModule,
+    StorageModule,
+    AuthModule,
+  ],
   providers: [ImportService],
-  controllers: [ImportController]
+  controllers: [ImportController],
 })
 export class ImportModule {}

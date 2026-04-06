@@ -27,7 +27,7 @@ import { FederationModule } from './federation/federation.module';
     StorageModule,
     FriendshipModule,
     UsersModule,
-    FederationModule
+    FederationModule,
   ],
   controllers: [AppController],
   providers: [AppService],

@@ -7,9 +7,14 @@ import { PrismaModule } from 'src/prisma/prisma.module';
 import { AuthModule } from 'src/auth/auth.module';
 
 @Module({
-  imports: [MembersModule, forwardRef(() => SystemModule), PrismaModule, AuthModule],
+  imports: [
+    MembersModule,
+    forwardRef(() => SystemModule),
+    PrismaModule,
+    AuthModule,
+  ],
   providers: [GroupsService],
   controllers: [GroupsController],
-  exports: [GroupsService]
+  exports: [GroupsService],
 })
 export class GroupsModule {}
