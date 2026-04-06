@@ -39,9 +39,11 @@ export class FederationProcessor extends WorkerHost {
         response.data,
       );
       return response.data;
-    } catch (error) {
+    } catch (error: unknown) {
+      const errorMessage =
+        error instanceof Error ? error.message : 'Unknown error';
       this.logger.error(
-        `Failed to send message to ${message.targetFederation}: ${error.message}`,
+        `Failed to send message to ${message.targetFederation}: ${errorMessage}`,
       );
       throw error;
     }

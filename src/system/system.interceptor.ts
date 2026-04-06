@@ -5,15 +5,27 @@ import {
   CallHandler,
   UnauthorizedException,
 } from '@nestjs/common';
+import type { Observable } from 'rxjs';
+import type { System } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import errorCodes from 'src/utils/errorCodes';
 
+type RequestWithUserAndSystem = {
+  user?: { id?: string };
+  system?: System;
+};
+
 @Injectable()
 export class SystemInterceptor implements NestInterceptor {
-  constructor(private prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService) {}
 
-  async intercept(context: ExecutionContext, next: CallHandler) {
-    const request = context.switchToHttp().getRequest();
+  async intercept(
+    context: ExecutionContext,
+    next: CallHandler<unknown>,
+  ): Promise<Observable<unknown>> {
+    const request = context
+      .switchToHttp()
+      .getRequest<RequestWithUserAndSystem>();
     if (request.user?.id) {
       const system = await this.prisma.system.findUnique({
         where: { userId: request.user.id },

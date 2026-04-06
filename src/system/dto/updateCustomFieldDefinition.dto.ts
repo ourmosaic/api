@@ -1,12 +1,4 @@
-import {
-  IsEmail,
-  IsString,
-  MinLength,
-  ValidateIf,
-  IsOptional,
-  IsEnum,
-  IsNumber,
-} from 'class-validator';
+import { IsString, IsOptional, IsEnum, IsNumber } from 'class-validator';
 import errorCodes from 'src/utils/errorCodes';
 
 export enum FieldType {

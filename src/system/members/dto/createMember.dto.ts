@@ -1,11 +1,4 @@
-import {
-  IsEmail,
-  IsString,
-  MinLength,
-  ValidateIf,
-  IsOptional,
-  IsEnum,
-} from 'class-validator';
+import { IsString, MinLength, IsOptional, IsEnum } from 'class-validator';
 import errorCodes from 'src/utils/errorCodes';
 
 enum Privacy {

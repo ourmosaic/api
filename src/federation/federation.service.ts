@@ -23,12 +23,17 @@ import { SubscriberService } from 'src/redis/subscriber/subscriber.service';
 import { InjectQueue } from '@nestjs/bullmq';
 import { ConfigService } from '@nestjs/config';
 import axios from 'axios';
+import { Queue } from 'bullmq';
 
 @Injectable()
 export class FederationService {
   private publicKey: string;
   private privateKey: string;
   private logger = new Logger(FederationService.name);
+
+  private static getErrorMessage(error: unknown): string {
+    return error instanceof Error ? error.message : String(error);
+  }
 
   constructor(
     private readonly prisma: PrismaService,
@@ -41,7 +46,7 @@ export class FederationService {
     private readonly redis: SubscriberService,
     private readonly configService: ConfigService,
     @InjectQueue('federation_outgoing')
-    private readonly federationOutgoingQueue,
+    private readonly federationOutgoingQueue: Queue<AnyFederationMessage>,
   ) {
     try {
       this.publicKey = fs.readFileSync(
@@ -74,18 +79,26 @@ export class FederationService {
   }
 
   getInfo() {
-    const packageJson = JSON.parse(
+    const packageJsonRaw: unknown = JSON.parse(
       fs.readFileSync(
         path.join(__dirname, '..', '..', '..', 'package.json'),
         'utf-8',
       ),
     );
+    if (
+      !packageJsonRaw ||
+      typeof packageJsonRaw !== 'object' ||
+      !('version' in packageJsonRaw) ||
+      typeof packageJsonRaw.version !== 'string'
+    ) {
+      throw new Error('Invalid package.json: missing string version field');
+    }
     const publicKey = fs.readFileSync(
       path.join(__dirname, '..', '..', '..', 'public.key'),
       'utf-8',
     );
     return {
-      version: packageJson.version,
+      version: packageJsonRaw.version,
       publicKey: publicKey,
     };
   }
@@ -104,7 +117,8 @@ export class FederationService {
     senderPublicKey: string,
   ): boolean {
     // we need to remove message.signature before verifying, otherwise the signature will always be invalid
-    const { signature: _, ...messageWithoutSignature } = message;
+    const messageWithoutSignature = { ...message };
+    delete messageWithoutSignature.signature;
     const messageString = JSON.stringify(messageWithoutSignature);
     const verifier = crypto.createVerify('RSA-SHA256');
     verifier.update(messageString);
@@ -113,13 +127,12 @@ export class FederationService {
   }
 
   async enqueueMessage(message: AnyFederationMessage) {
-    const signature = this.signMessage(message);
-    message.signature = signature;
+    message.signature = this.signMessage(message);
     await this.federationOutgoingQueue.add('sendMessage', message, {
       attempts: 12,
       backoff: {
         type: 'exponential',
-        delay: 1 * 60 * 1000,
+        delay: 60 * 1000,
       },
       removeOnComplete: true,
       removeOnFail: false,
@@ -149,7 +162,7 @@ export class FederationService {
         `Received message from unknown federation ${senderFederation}. Looking up public key...`,
       );
       try {
-        const response = await axios.get(
+        const response = await axios.get<{ publicKey?: string }>(
           `http://${senderFederation}/federation/info`,
           { timeout: 5000 },
         );
@@ -166,9 +179,9 @@ export class FederationService {
         // CHECK IF THIS IS A VALID RSA PUBLIC KEY
         try {
           crypto.createPublicKey(senderPublicKey);
-        } catch (error) {
+        } catch (error: unknown) {
           this.logger.error(
-            `Invalid public key format received from federation ${senderFederation}: ${error.message}`,
+            `Invalid public key format received from federation ${senderFederation}: ${FederationService.getErrorMessage(error)}`,
           );
           throw new BadRequestException(
             'Invalid public key format received from federation',
@@ -185,9 +198,9 @@ export class FederationService {
         this.logger.log(
           `Added ${senderFederation} to known federations with retrieved public key.`,
         );
-      } catch (error) {
+      } catch (error: unknown) {
         this.logger.error(
-          `Failed to retrieve info from federation ${senderFederation}: ${error.message}`,
+          `Failed to retrieve info from federation ${senderFederation}: ${FederationService.getErrorMessage(error)}`,
         );
         throw new BadRequestException(
           'Unable to verify message from unknown federation and failed to retrieve its public key',
@@ -221,9 +234,9 @@ export class FederationService {
       `Message signature verified successfully for message from ${senderFederation}. In a real implementation, we would now process the message based on its type and content.`,
     );
     switch (message.type) {
-      case FederationMessageType.FRIEND_REQUEST:
+      case FederationMessageType.FRIEND_REQUEST: {
         // change message to FriendRequestMessage type
-        const friendRequestMessage = message as FriendRequestMessage;
+        const friendRequestMessage: FriendRequestMessage = message;
         this.logger.debug(
           `Processing friend request from ${friendRequestMessage.senderUsername} to ${friendRequestMessage.recipientUsername} via federation ${senderFederation}`,
         );
@@ -283,6 +296,7 @@ export class FederationService {
           `Created friend request from ${senderUser.username} to ${recipientUser.username} based on message from federation ${senderFederation}`,
         );
         return { message: 'Friend request processed successfully' };
+      }
       default:
         this.logger.warn(
           `Received unsupported message type ${message.type} from federation ${senderFederation}. No processing implemented for this message type.`,

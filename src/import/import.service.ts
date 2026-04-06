@@ -2,8 +2,6 @@ import { BadRequestException, Injectable } from '@nestjs/common';
 import { PrivacyLevel, User } from '@prisma/client';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { FieldType } from 'src/system/dto/updateCustomFieldDefinition.dto';
-import { GroupsService } from 'src/system/groups/groups.service';
-import { MembersService } from 'src/system/members/members.service';
 import { SystemService } from 'src/system/system.service';
 import { randomUUID } from 'crypto';
 import errorCodes from 'src/utils/errorCodes';
@@ -14,19 +12,132 @@ import { MINIO_BUCKET_NAME, MINIO_URL } from 'src/utils/constants';
 
 const BATCH_SIZE = 1000;
 
+type SimplyPluralUser = {
+  isAsystem: boolean;
+  username?: string;
+  desc?: string;
+  avatarUrl?: string;
+  color?: string;
+  fields: Record<string, { name: string }>;
+};
+
+type SimplyPluralCustomField = {
+  _id: string;
+  name: string;
+  type: number;
+  order: string;
+};
+
+type SimplyPluralPrivacyBucket = { id: string; rank: string };
+
+type SimplyPluralMember = {
+  _id: string;
+  uid: string;
+  name: string;
+  desc?: string;
+  pronouns?: string;
+  avatarUuid?: string;
+  privacyBucketId?: string;
+  info?: Record<string, unknown>;
+};
+
+type SimplyPluralGroup = {
+  _id: string;
+  parent?: string | null;
+  name?: string;
+  color?: string;
+  emoji?: string;
+  icon?: string;
+  members?: string[];
+};
+
+type SimplyPluralFrontSession = {
+  member: string;
+  startTime: string | number | Date;
+  endTime?: string | number | Date | null;
+  customStatus?: string;
+};
+
+type SimplyPluralChannelCategory = {
+  _id: string;
+  name: string;
+  desc?: string;
+  channels: string[];
+};
+
+type SimplyPluralChannel = { _id: string; name: string; desc?: string };
+
+type SimplyPluralChatMessage = {
+  writer: string;
+  channel: string;
+  message: string;
+  writtenAt: string | number | Date;
+};
+
+type SimplyPluralBoardMessage = {
+  writtenBy: string;
+  writtenFor: string;
+  read: boolean;
+  message: string;
+  writtenAt: string | number | Date;
+};
+
+type SimplyPluralImportPayload = {
+  customFields: SimplyPluralCustomField[];
+  users: SimplyPluralUser[];
+  notes: unknown[];
+  members: SimplyPluralMember[];
+  privateFront: unknown;
+  comments: unknown[];
+  chatMessages: SimplyPluralChatMessage[];
+  groups: SimplyPluralGroup[];
+  privacyBuckets: SimplyPluralPrivacyBucket[];
+  frontHistory: SimplyPluralFrontSession[];
+  channelCategories: SimplyPluralChannelCategory[];
+  channels: SimplyPluralChannel[];
+  boardMessages: SimplyPluralBoardMessage[];
+};
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  !!value && typeof value === 'object';
+
+const isSimplyPluralImportPayload = (
+  value: unknown,
+): value is SimplyPluralImportPayload => {
+  if (!isRecord(value)) {
+    return false;
+  }
+
+  return (
+    Array.isArray(value.customFields) &&
+    Array.isArray(value.users) &&
+    Array.isArray(value.notes) &&
+    Array.isArray(value.members) &&
+    Array.isArray(value.comments) &&
+    Array.isArray(value.chatMessages) &&
+    Array.isArray(value.groups) &&
+    Array.isArray(value.privacyBuckets) &&
+    Array.isArray(value.frontHistory) &&
+    Array.isArray(value.channelCategories) &&
+    Array.isArray(value.channels) &&
+    Array.isArray(value.boardMessages) &&
+    'privateFront' in value
+  );
+};
+
 @Injectable()
 export class ImportService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly storageService: StorageService,
     private readonly systemService: SystemService,
-    private readonly groupsService: GroupsService,
   ) {}
 
-  async importFromSimplyPlural(user: User, data: any) {
-    if (!data || typeof data !== 'object') {
+  async importFromSimplyPlural(user: User, data: unknown) {
+    if (!isSimplyPluralImportPayload(data)) {
       throw new BadRequestException();
     }
+    const payload = data;
     const requiredKeys = [
       'customFields',
       'users',
@@ -41,7 +152,7 @@ export class ImportService {
     ];
 
     for (const key of requiredKeys) {
-      if (!data[key]) {
+      if (!(key in payload)) {
         throw new BadRequestException({
           code: errorCodes.IMPORT_DATA_MISSING_KEY,
           key: key,
@@ -49,7 +160,7 @@ export class ImportService {
       }
     }
 
-    const spUser = data.users[0];
+    const spUser = payload.users[0];
     if (!spUser || !spUser.isAsystem) {
       throw new BadRequestException(errorCodes.IMPORT_DATA_INVALID_USER);
     }
@@ -72,14 +183,21 @@ export class ImportService {
 
     const customFieldIdMap: Record<string, string> = {};
     const fieldIdToNameMap: Record<string, string> = {};
-    const customFieldsToCreate: any[] = [];
+    const customFieldsToCreate: Array<{
+      id: string;
+      name: string;
+      type: FieldType;
+      order: number;
+      systemId: string;
+      privacy: PrivacyLevel;
+    }> = [];
 
     for (const fieldName of Object.keys(spUser.fields)) {
       const fieldId = spUser.fields[fieldName].name;
       fieldIdToNameMap[fieldId] = fieldName;
     }
 
-    for (const field of data.customFields) {
+    for (const field of payload.customFields) {
       let fieldType: FieldType;
       switch (field.type) {
         case 0:
@@ -96,7 +214,8 @@ export class ImportService {
           fieldType = FieldType.STRING;
       }
 
-      let [orderInt, orderStr] = field.order.split('|');
+      const [orderInt, rawOrderStr] = field.order.split('|');
+      let orderStr = rawOrderStr ?? '';
       orderStr = orderStr.replace(/:/g, '');
       const order =
         parseInt(orderInt) +
@@ -129,7 +248,7 @@ export class ImportService {
     }
 
     const privacyBucketMap: Record<string, PrivacyLevel> = {};
-    for (const bucket of data.privacyBuckets) {
+    for (const bucket of payload.privacyBuckets) {
       if (bucket.rank.endsWith('a'))
         privacyBucketMap[bucket.id] = PrivacyLevel.PUBLIC;
       else if (bucket.rank.endsWith('z'))
@@ -138,10 +257,23 @@ export class ImportService {
     }
 
     const memberIdMap: Record<string, string> = {};
-    const membersToCreate: any[] = [];
-    const customFieldValuesToCreate: any[] = [];
+    const membersToCreate: Array<{
+      id: string;
+      name: string;
+      description: string | undefined;
+      pronouns: string | undefined;
+      privacy: PrivacyLevel;
+      avatarUrl: string | undefined;
+      systemId: string;
+    }> = [];
+    const customFieldValuesToCreate: Array<{
+      id: string;
+      value: string;
+      memberId: string;
+      customFieldId: string;
+    }> = [];
 
-    for (const member of data.members) {
+    for (const member of payload.members) {
       const newMemberId = randomUUID();
       memberIdMap[member._id] = newMemberId;
 
@@ -152,10 +284,10 @@ export class ImportService {
 
       if (avatarUrl) {
         try {
-          const response = await axios.get(avatarUrl, {
+          const response = await axios.get<ArrayBuffer>(avatarUrl, {
             responseType: 'arraybuffer',
           });
-          const buffer = Buffer.from(response.data, 'binary');
+          const buffer = Buffer.from(new Uint8Array(response.data));
           const metadata = await sharp(buffer).metadata();
           if (!['jpeg', 'jpg', 'png', 'webp'].includes(metadata.format)) {
             continue;
@@ -187,8 +319,10 @@ export class ImportService {
         name: member.name,
         description: member.desc,
         pronouns: member.pronouns,
-        privacy: (privacyBucketMap[member.privacyBucketId] ||
-          PrivacyLevel.PRIVATE) as any,
+        privacy:
+          member.privacyBucketId && privacyBucketMap[member.privacyBucketId]
+            ? privacyBucketMap[member.privacyBucketId]
+            : PrivacyLevel.PRIVATE,
         avatarUrl,
         systemId: system.id,
       });
@@ -197,10 +331,25 @@ export class ImportService {
         for (const fieldId in member.info) {
           const value = member.info[fieldId];
           const mappedFieldId = customFieldIdMap[fieldId];
-          if (value && mappedFieldId) {
+          if (value !== undefined && value !== null && mappedFieldId) {
+            let normalizedValue: string;
+            if (
+              typeof value === 'string' ||
+              typeof value === 'number' ||
+              typeof value === 'boolean' ||
+              typeof value === 'bigint'
+            ) {
+              normalizedValue = `${value}`;
+            } else if (value instanceof Date) {
+              normalizedValue = value.toISOString();
+            } else if (typeof value === 'object') {
+              normalizedValue = JSON.stringify(value);
+            } else {
+              continue;
+            }
             customFieldValuesToCreate.push({
               id: randomUUID(),
-              value: String(value),
+              value: normalizedValue,
               memberId: newMemberId,
               customFieldId: mappedFieldId,
             });
@@ -221,10 +370,10 @@ export class ImportService {
     }
 
     const groupIdMap: Record<string, string> = {};
-    const groupsToCreate: any[] = [];
-    const groupMap: Record<string, any> = {};
+    const groupsToCreate: SimplyPluralGroup[] = [];
+    const groupMap: Record<string, SimplyPluralGroup> = {};
 
-    for (const group of data.groups) {
+    for (const group of payload.groups) {
       groupMap[group._id] = group;
     }
 
@@ -243,12 +392,20 @@ export class ImportService {
       visitedGroups.add(groupId);
     };
 
-    for (const group of data.groups) {
+    for (const group of payload.groups) {
       visitGroup(group._id);
     }
 
-    const groupsToInsert: any[] = [];
-    const memberOnGroupsToCreate: any[] = [];
+    const groupsToInsert: Array<{
+      id: string;
+      name: string;
+      color: string;
+      icon: string;
+      parentId: string | null;
+      systemId: string;
+    }> = [];
+    const memberOnGroupsToCreate: Array<{ memberId: string; groupId: string }> =
+      [];
 
     for (const group of groupsToCreate) {
       groupIdMap[group._id] = randomUUID();
@@ -292,8 +449,15 @@ export class ImportService {
       });
     }
 
-    const frontSessionsToCreate: any[] = [];
-    for (const session of data.frontHistory) {
+    const frontSessionsToCreate: Array<{
+      id: string;
+      memberId: string;
+      systemId: string;
+      startTime: Date;
+      endTime: Date | null;
+      notes: string | undefined;
+    }> = [];
+    for (const session of payload.frontHistory) {
       const mappedMemberId = memberIdMap[session.member];
       if (!mappedMemberId) continue;
 
@@ -313,14 +477,31 @@ export class ImportService {
       });
     }
 
-    const channelCategoriesToCreate: any[] = [];
-    const channelsToCreate: any[] = [];
-    const chatMessagesToCreate: any[] = [];
+    const channelCategoriesToCreate: Array<{
+      id: string;
+      name: string;
+      desc: string | undefined;
+      systemId: string;
+    }> = [];
+    const channelsToCreate: Array<{
+      id: string;
+      name: string;
+      description: string | undefined;
+      categoryId: string | null;
+      systemId: string;
+    }> = [];
+    const chatMessagesToCreate: Array<{
+      id: string;
+      content: string;
+      timestamp: Date;
+      senderId: string;
+      channelId: string;
+    }> = [];
     const channelIdMap: Record<string, string> = {};
     const categoryIdMap: Record<string, string> = {};
-    const channelCategoryMap: Record<string, any> = {};
+    const channelCategoryMap: Record<string, string> = {};
 
-    for (const category of data.channelCategories) {
+    for (const category of payload.channelCategories) {
       const newCategoryId = randomUUID();
       categoryIdMap[category._id] = newCategoryId;
       channelCategoriesToCreate.push({
@@ -334,7 +515,7 @@ export class ImportService {
       }
     }
 
-    for (const channel of data.channels) {
+    for (const channel of payload.channels) {
       const newChannelId = randomUUID();
       channelIdMap[channel._id] = newChannelId;
       channelsToCreate.push({
@@ -348,7 +529,7 @@ export class ImportService {
       });
     }
 
-    for (const message of data.chatMessages) {
+    for (const message of payload.chatMessages) {
       const mappedMemberId = memberIdMap[message.writer];
       const mappedChannelId = channelIdMap[message.channel];
       if (!mappedMemberId || !mappedChannelId) continue;
@@ -378,8 +559,15 @@ export class ImportService {
       });
     }
 
-    const boardMessagesToCreate: any[] = [];
-    for (const message of data.boardMessages) {
+    const boardMessagesToCreate: Array<{
+      id: string;
+      content: string;
+      timestamp: Date;
+      fromId: string;
+      toId: string;
+      read: boolean;
+    }> = [];
+    for (const message of payload.boardMessages) {
       const mappedSenderId = memberIdMap[message.writtenBy];
       const mappedReceiverId = memberIdMap[message.writtenFor];
       const hasBeenRead = message.read;

@@ -1,8 +1,12 @@
 import { createParamDecorator, ExecutionContext } from '@nestjs/common';
 
+type RequestWithSystem = {
+  system?: unknown;
+};
+
 export const System = createParamDecorator(
-  (data: string | undefined, ctx: ExecutionContext) => {
-    const request = ctx.switchToHttp().getRequest();
+  (_data: string | undefined, ctx: ExecutionContext): unknown => {
+    const request = ctx.switchToHttp().getRequest<RequestWithSystem>();
     return request.system;
   },
 );

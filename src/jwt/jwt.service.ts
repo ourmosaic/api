@@ -45,18 +45,20 @@ export class JwtService {
     return this.refreshTokenSigner({ sub: redisId });
   }
 
-  verifyAccessToken(token: string) {
+  verifyAccessToken(token: string): unknown {
     try {
-      return this.accessTokenVerifier(token);
-    } catch (err) {
+      const payload: unknown = this.accessTokenVerifier(token);
+      return payload;
+    } catch {
       return null;
     }
   }
 
-  verifyRefreshToken(token: string) {
+  verifyRefreshToken(token: string): unknown {
     try {
-      return this.refreshTokenVerifier(token);
-    } catch (err) {
+      const payload: unknown = this.refreshTokenVerifier(token);
+      return payload;
+    } catch {
       return null;
     }
   }

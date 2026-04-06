@@ -56,7 +56,7 @@ export class AuthController {
   @Version(VERSION_NEUTRAL)
   @Get('me')
   @UseGuards(AuthGuard)
-  async getMe(@CurrentUser() user: User): Promise<User> {
+  getMe(@CurrentUser() user: User): User {
     return user;
   }
 }

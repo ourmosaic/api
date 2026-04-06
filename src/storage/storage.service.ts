@@ -2,7 +2,6 @@ import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as Minio from 'minio';
 import { UploadedObjectInfo } from 'node_modules/minio/dist/esm/internal/type.mjs';
-import sharp from 'sharp';
 
 @Injectable()
 export class StorageService {

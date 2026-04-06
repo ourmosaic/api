@@ -83,7 +83,7 @@ export class FriendshipService {
     const request = await this.prisma.friendship.create({
       data: {
         userOneId: sender.id,
-        userTwoId: dto.recipientId!,
+        userTwoId: dto.recipientId,
         status: FriendshipStatus.PENDING,
       },
     });

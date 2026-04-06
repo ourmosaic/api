@@ -1,10 +1,4 @@
-import {
-  IsEmail,
-  IsString,
-  MinLength,
-  ValidateIf,
-  IsOptional,
-} from 'class-validator';
+import { IsString, MinLength, IsOptional } from 'class-validator';
 import errorCodes from 'src/utils/errorCodes';
 
 export class CreateGroupDto {

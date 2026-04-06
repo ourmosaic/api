@@ -18,6 +18,38 @@ export class AuthService {
   private readonly redisRefreshTokenPrefix = 'refresh:';
   private readonly redisAccessTokenPrefix = 'access:';
 
+  private static isJwtPayload(value: unknown): value is { sub: string } {
+    return (
+      !!value &&
+      typeof value === 'object' &&
+      'sub' in value &&
+      typeof (value as { sub?: unknown }).sub === 'string'
+    );
+  }
+
+  private static isRedisRefreshTokenData(
+    value: unknown,
+  ): value is { userId: string; accessToken?: string } {
+    if (!value || typeof value !== 'object') {
+      return false;
+    }
+    const maybe = value as { userId?: unknown; accessToken?: unknown };
+    return (
+      typeof maybe.userId === 'string' &&
+      (maybe.accessToken === undefined || typeof maybe.accessToken === 'string')
+    );
+  }
+
+  private static isRedisAccessTokenData(
+    value: unknown,
+  ): value is { userId: string } {
+    if (!value || typeof value !== 'object') {
+      return false;
+    }
+    const maybe = value as { userId?: unknown };
+    return typeof maybe.userId === 'string';
+  }
+
   constructor(
     private readonly jwtService: JwtService,
     private readonly redisService: RedisService,
@@ -66,17 +98,25 @@ export class AuthService {
   async refreshTokens(
     refreshToken: string,
   ): Promise<AuthenticationResponseDto> {
-    const payload = this.jwtService.verifyRefreshToken(refreshToken);
-    if (!payload) {
+    const payloadRaw: unknown =
+      this.jwtService.verifyRefreshToken(refreshToken);
+    if (!AuthService.isJwtPayload(payloadRaw)) {
       throw new UnauthorizedException(errorCodes.REFRESH_TOKEN_INVALID);
     }
+    const payload = payloadRaw;
     const redisRefreshTokenKey = `${this.redisPrefix}${this.redisRefreshTokenPrefix}${payload.sub}`;
     const redisRefreshTokenDataString =
       await this.redisService.get(redisRefreshTokenKey);
     if (!redisRefreshTokenDataString) {
       throw new UnauthorizedException(errorCodes.REFRESH_TOKEN_INVALID);
     }
-    const redisRefreshTokenData = JSON.parse(redisRefreshTokenDataString);
+    const parsedRefreshTokenData: unknown = JSON.parse(
+      redisRefreshTokenDataString,
+    );
+    if (!AuthService.isRedisRefreshTokenData(parsedRefreshTokenData)) {
+      throw new UnauthorizedException(errorCodes.REFRESH_TOKEN_INVALID);
+    }
+    const redisRefreshTokenData = parsedRefreshTokenData;
     if (redisRefreshTokenData.accessToken) {
       await this.revokeAccessToken(redisRefreshTokenData.accessToken);
     }
@@ -140,17 +180,24 @@ export class AuthService {
   }
 
   async getUserFromAccessToken(token: string) {
-    const payload = this.jwtService.verifyAccessToken(token);
-    if (!payload) {
+    const payloadRaw: unknown = this.jwtService.verifyAccessToken(token);
+    if (!AuthService.isJwtPayload(payloadRaw)) {
       throw new UnauthorizedException(errorCodes.INVALID_ACCESS_TOKEN);
     }
+    const payload = payloadRaw;
     const redisAccessTokenKey = `${this.redisPrefix}${this.redisAccessTokenPrefix}${payload.sub}`;
     const redisAccessTokenDataString =
       await this.redisService.get(redisAccessTokenKey);
     if (!redisAccessTokenDataString) {
       throw new UnauthorizedException(errorCodes.INVALID_ACCESS_TOKEN);
     }
-    const redisAccessTokenData = JSON.parse(redisAccessTokenDataString);
+    const parsedAccessTokenData: unknown = JSON.parse(
+      redisAccessTokenDataString,
+    );
+    if (!AuthService.isRedisAccessTokenData(parsedAccessTokenData)) {
+      throw new UnauthorizedException(errorCodes.INVALID_ACCESS_TOKEN);
+    }
+    const redisAccessTokenData = parsedAccessTokenData;
     const user = await this.prismaService.user.findUnique({
       where: { id: redisAccessTokenData.userId },
       select: {
@@ -171,17 +218,24 @@ export class AuthService {
   }
 
   async getUserIdFromAccessToken(token: string) {
-    const payload = this.jwtService.verifyAccessToken(token);
-    if (!payload) {
+    const payloadRaw: unknown = this.jwtService.verifyAccessToken(token);
+    if (!AuthService.isJwtPayload(payloadRaw)) {
       throw new UnauthorizedException(errorCodes.INVALID_ACCESS_TOKEN);
     }
+    const payload = payloadRaw;
     const redisAccessTokenKey = `${this.redisPrefix}${this.redisAccessTokenPrefix}${payload.sub}`;
     const redisAccessTokenDataString =
       await this.redisService.get(redisAccessTokenKey);
     if (!redisAccessTokenDataString) {
       throw new UnauthorizedException(errorCodes.INVALID_ACCESS_TOKEN);
     }
-    const redisAccessTokenData = JSON.parse(redisAccessTokenDataString);
+    const parsedAccessTokenData: unknown = JSON.parse(
+      redisAccessTokenDataString,
+    );
+    if (!AuthService.isRedisAccessTokenData(parsedAccessTokenData)) {
+      throw new UnauthorizedException(errorCodes.INVALID_ACCESS_TOKEN);
+    }
+    const redisAccessTokenData = parsedAccessTokenData;
     return redisAccessTokenData.userId;
   }
 
@@ -190,13 +244,15 @@ export class AuthService {
     const refreshToken = req.headers['x-refresh-token'] as string;
     if (authHeader && authHeader.startsWith('Bearer ')) {
       const token = authHeader.split(' ')[1];
-      const payload = this.jwtService.verifyAccessToken(token);
-      if (payload) {
+      const payloadRaw: unknown = this.jwtService.verifyAccessToken(token);
+      if (AuthService.isJwtPayload(payloadRaw)) {
+        const payload = payloadRaw;
         await this.revokeAccessToken(payload.sub);
         if (refreshToken) {
-          const refreshPayload =
+          const refreshPayloadRaw: unknown =
             this.jwtService.verifyRefreshToken(refreshToken);
-          if (refreshPayload) {
+          if (AuthService.isJwtPayload(refreshPayloadRaw)) {
+            const refreshPayload = refreshPayloadRaw;
             await this.revokeRefreshToken(refreshPayload.sub);
           }
         }

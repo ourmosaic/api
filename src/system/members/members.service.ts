@@ -2,17 +2,15 @@ import {
   BadRequestException,
   Injectable,
   NotFoundException,
-  UnauthorizedException,
 } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { SystemService } from '../system.service';
-import type { User, Member, System, FrontSession } from '@prisma/client';
+import type { Member, System, FrontSession } from '@prisma/client';
 import { CreateMemberDto } from './dto/createMember.dto';
 import { UpdateMemberDto } from './dto/updateMember.dto';
 import errorCodes from 'src/utils/errorCodes';
 import { FieldType } from '../dto/updateCustomFieldDefinition.dto';
 import { UpdateFieldContentDto } from './dto/updateFieldContent.dto';
-import { NotFoundError } from 'rxjs';
 import { RedisService } from 'src/redis/redis.service';
 import { REDIS_EVENTS } from 'src/utils/constants';
 
@@ -25,7 +23,7 @@ export class MembersService {
   ) {}
 
   async createMember(system: System, dto: CreateMemberDto): Promise<Member> {
-    return await this.prisma.member.create({
+    return this.prisma.member.create({
       data: {
         name: dto.name,
         description: dto.description,
@@ -162,7 +160,7 @@ export class MembersService {
     switch (type) {
       case FieldType.STRING:
         return value;
-      case FieldType.NUMBER:
+      case FieldType.NUMBER: {
         const numberValue = Number(value);
         if (isNaN(numberValue)) {
           throw new BadRequestException(
@@ -170,6 +168,7 @@ export class MembersService {
           );
         }
         return numberValue;
+      }
       case FieldType.LONG_TEXT:
         return value;
       case FieldType.COLOR:
