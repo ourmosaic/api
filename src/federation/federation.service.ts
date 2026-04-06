@@ -125,6 +125,7 @@ export class FederationService {
   }
 
   async enqueueMessage(message: AnyFederationMessage) {
+    message.nonce = crypto.randomBytes(32).toString('hex');
     message.signature = this.signMessage(message);
     await this.federationOutgoingQueue.add('sendMessage', message, {
       attempts: 12,
@@ -160,7 +161,27 @@ export class FederationService {
     this.logger.debug(
       `Received message of type ${message.type} from ${senderFederationWithProto} at ${message.timestamp}`,
     );
-    // REMOVE protocol : we're using HTTP anyway
+    if (Date.now() - message.timestamp > 5 * 60 * 1000) {
+      this.logger.warn(
+        `Received message with timestamp ${message.timestamp} which is older than 5 minutes. Rejecting message.`,
+      );
+      throw new BadRequestException('Message timestamp is too old');
+    }
+    if (!message.nonce) {
+      this.logger.warn(
+        `Received message without nonce from ${senderFederationWithProto}. Rejecting message to prevent replay attacks.`,
+      );
+      throw new BadRequestException('Missing nonce in federation message');
+    }
+    if (
+      await this.redis.sismember('processedFederationNonces', message.nonce)
+    ) {
+      this.logger.warn(
+        `Received message with nonce ${message.nonce} which has already been processed. Possible replay attack. Rejecting message.`,
+      );
+      throw new BadRequestException('Message nonce has already been processed');
+    }
+    await this.redis.sadd('processedFederationNonces', message.nonce);
     const senderFederation = senderFederationWithProto.replace(
       /^https?:\/\//,
       '',

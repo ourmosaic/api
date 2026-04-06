@@ -14,6 +14,7 @@ type FederationMessage = {
   timestamp: number;
   signature?: string;
   targetFederation: string;
+  nonce: string;
 };
 
 type HandshakeMessage = FederationMessage & {
