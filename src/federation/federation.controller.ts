@@ -21,6 +21,23 @@ export class FederationController {
   }
 
   @Version(VERSION_NEUTRAL)
+  @Get('handshake')
+  async handshake(
+    @Headers('X-Federation-Uri') senderFederation: string,
+    @Headers('X-Federation-Signature') signature: string,
+    @Headers('X-Request-Id') requestId: string,
+    @Headers('X-Request-Timestamp') timestamp: string,
+  ) {
+    await this.federationService.getFederationPublicKey(senderFederation);
+    return this.federationService.handleHandshake(
+      senderFederation,
+      signature,
+      requestId,
+      timestamp,
+    );
+  }
+
+  @Version(VERSION_NEUTRAL)
   @Post('receive')
   async receiveMessage(
     @Body() message: AnyFederationMessage,
@@ -31,6 +48,22 @@ export class FederationController {
       message,
       senderFederation,
       signature,
+    );
+  }
+
+  @Version(VERSION_NEUTRAL)
+  @Get('outbox')
+  getOutbox(
+    @Headers('X-Federation-Uri') senderFederation: string,
+    @Headers('X-Federation-Signature') signature: string,
+    @Headers('X-Request-Id') requestId: string,
+    @Headers('X-Request-Timestamp') timestamp: string,
+  ) {
+    return this.federationService.getOutbox(
+      senderFederation,
+      signature,
+      requestId,
+      timestamp,
     );
   }
 }

@@ -24,7 +24,6 @@ datasource db {
   provider = "postgresql"
 }
 
-
 enum PrivacyLevel {
   PRIVATE
   FRIENDS
@@ -51,20 +50,20 @@ enum FriendshipType {
 }
 
 model User {
-  id                      String    @id @default(uuid())
-  username                String    @unique
-  email                   String    @unique
-  password                String
-  createdAt               DateTime  @default(now())
-  updatedAt               DateTime  @updatedAt
-  isFederated             Boolean   @default(false)
-  domain                  String?
+  id          String   @id @default(uuid())
+  username    String   @unique
+  email       String   @unique
+  password    String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  isFederated Boolean  @default(false)
+  domain      String?
 
-  isSystem                Boolean   @default(false) // Permet de savoir rapidement si l'utilisateur est un système
-  system                  System?
+  isSystem Boolean @default(false) // Permet de savoir rapidement si l'utilisateur est un système
+  system   System?
 
-  sentFriendRequests      Friendship[] @relation("UserOne")
-  receivedFriendRequests  Friendship[] @relation("UserTwo")
+  sentFriendRequests     Friendship[] @relation("UserOne")
+  receivedFriendRequests Friendship[] @relation("UserTwo")
 }
 
 model System {
@@ -75,8 +74,8 @@ model System {
   color       String?
   domain      String?
 
-  userId      String  @unique
-  user        User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   members       Member[]
   groups        Group[]
@@ -89,57 +88,58 @@ model System {
 }
 
 model Member {
-  id                String        @id @default(uuid())
-  name              String
-  pronouns          String?
-  avatarUrl         String?
-  role              String?
-  description       String?
-  domain            String?
-  privacy           PrivacyLevel  @default(PRIVATE)
-  createdAt         DateTime      @default(now())
-  updatedAt         DateTime      @updatedAt
+  id          String       @id @default(uuid())
+  name        String
+  pronouns    String?
+  avatarUrl   String?
+  role        String?
+  description String?
+  domain      String?
+  inDormancy  Boolean      @default(false)
+  privacy     PrivacyLevel @default(PRIVATE)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
 
-  systemId          String
-  system            System        @relation(fields: [systemId], references: [id], onDelete: Cascade)
-  
+  systemId String
+  system   System @relation(fields: [systemId], references: [id], onDelete: Cascade)
+
   frontSessions     FrontSession[]
   groups            MemberOnGroups[]
   customFieldValues CustomFieldValue[]
 
   chatMessages ChatMessage[]
 
-  boardMessagesSent BoardMessage[] @relation("BoardMessageFrom")
+  boardMessagesSent     BoardMessage[] @relation("BoardMessageFrom")
   boardMessagesReceived BoardMessage[] @relation("BoardMessageTo")
 }
 
 model Group {
-  id        String    @id @default(uuid())
+  id        String   @id @default(uuid())
   name      String
   color     String?
   icon      String?
   domain    String?
-  createdAt DateTime  @default(now())
+  createdAt DateTime @default(now())
 
-  parentId  String?   @default("root")
-  parent    Group?    @relation("GroupToGroup", fields: [parentId], references: [id])
-  children  Group[]   @relation("GroupToGroup")
+  parentId String? @default("root")
+  parent   Group?  @relation("GroupToGroup", fields: [parentId], references: [id])
+  children Group[] @relation("GroupToGroup")
 
-  systemId  String
-  system    System    @relation(fields: [systemId], references: [id], onDelete: Cascade)
+  systemId String
+  system   System @relation(fields: [systemId], references: [id], onDelete: Cascade)
 
-  members   MemberOnGroups[]
+  members MemberOnGroups[]
 }
 
 model MemberOnGroups {
-  memberId    String
-  member      Member    @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  memberId String
+  member   Member @relation(fields: [memberId], references: [id], onDelete: Cascade)
 
-  groupId     String
-  group       Group     @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  groupId String
+  group   Group  @relation(fields: [groupId], references: [id], onDelete: Cascade)
 
-  assignedAt  DateTime  @default(now())
-  
+  assignedAt DateTime @default(now())
+
   @@id([memberId, groupId])
 }
 
@@ -149,11 +149,11 @@ model FrontSession {
   endTime   DateTime?
   notes     String?
 
-  systemId  String
-  system    System    @relation(fields: [systemId], references: [id], onDelete: Cascade)
+  systemId String
+  system   System @relation(fields: [systemId], references: [id], onDelete: Cascade)
 
-  memberId  String
-  member    Member    @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  memberId String
+  member   Member @relation(fields: [memberId], references: [id], onDelete: Cascade)
 }
 
 model CustomField {
@@ -163,18 +163,18 @@ model CustomField {
   order   Int             @default(0)
   privacy PrivacyLevel    @default(PRIVATE)
 
-  systemId  String
-  system    System        @relation(fields: [systemId], references: [id], onDelete: Cascade)
+  systemId String
+  system   System @relation(fields: [systemId], references: [id], onDelete: Cascade)
 
   values CustomFieldValue[]
 }
 
 model CustomFieldValue {
-  id            String      @id @default(uuid())
-  value         String
+  id    String @id @default(uuid())
+  value String
 
-  memberId      String
-  member        Member      @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  memberId String
+  member   Member @relation(fields: [memberId], references: [id], onDelete: Cascade)
 
   customFieldId String
   customField   CustomField @relation(fields: [customFieldId], references: [id], onDelete: Cascade)
@@ -183,12 +183,12 @@ model CustomFieldValue {
 }
 
 model ChannelCategory {
-  id    String  @id @default(uuid())
-  name  String
-  desc  String?
+  id   String  @id @default(uuid())
+  name String
+  desc String?
 
-  systemId  String
-  system    System    @relation(fields: [systemId], references: [id], onDelete: Cascade)
+  systemId String
+  system   System @relation(fields: [systemId], references: [id], onDelete: Cascade)
 
   channels Channel[]
 }
@@ -199,59 +199,59 @@ model Channel {
   description String?
   categoryId  String?
 
-  category    ChannelCategory? @relation(fields: [categoryId], references: [id])
+  category ChannelCategory? @relation(fields: [categoryId], references: [id])
 
-  systemId  String
-  system    System    @relation(fields: [systemId], references: [id], onDelete: Cascade)
+  systemId String
+  system   System @relation(fields: [systemId], references: [id], onDelete: Cascade)
 
   chatMessages ChatMessage[]
 }
 
 model ChatMessage {
-  id        String    @id @default(uuid())
+  id        String   @id @default(uuid())
   content   String
-  timestamp DateTime  @default(now())
+  timestamp DateTime @default(now())
 
-  senderId  String
-  sender    Member    @relation(fields: [senderId], references: [id], onDelete: Cascade)
+  senderId String
+  sender   Member @relation(fields: [senderId], references: [id], onDelete: Cascade)
 
   channelId String
-  channel   Channel   @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  channel   Channel @relation(fields: [channelId], references: [id], onDelete: Cascade)
 }
 
 model BoardMessage {
-  id        String    @id @default(uuid())
+  id        String   @id @default(uuid())
   content   String
-  timestamp DateTime  @default(now())
-  read      Boolean   @default(false)
+  timestamp DateTime @default(now())
+  read      Boolean  @default(false)
 
-  fromId    String
-  from      Member    @relation("BoardMessageFrom", fields: [fromId], references: [id], onDelete: Cascade)
+  fromId String
+  from   Member @relation("BoardMessageFrom", fields: [fromId], references: [id], onDelete: Cascade)
 
-  toId      String
-  to        Member    @relation("BoardMessageTo", fields: [toId], references: [id], onDelete: Cascade)
+  toId String
+  to   Member @relation("BoardMessageTo", fields: [toId], references: [id], onDelete: Cascade)
 }
 
 model KnownFederation {
-  id        String    @id @default(uuid())
-  url       String    @unique
+  id        String   @id @default(uuid())
+  url       String   @unique
   publicKey String
-  createdAt DateTime  @default(now())
+  createdAt DateTime @default(now())
 }
 
 model Friendship {
-  id        String            @id @default(uuid())
-  status    FriendshipStatus  @default(PENDING)
-  createdAt DateTime          @default(now())
-  type      FriendshipType    @default(FRIENDS)
+  id        String           @id @default(uuid())
+  status    FriendshipStatus @default(PENDING)
+  createdAt DateTime         @default(now())
+  type      FriendshipType   @default(FRIENDS)
 
   // sender
   userOneId String
-  userOne   User              @relation("UserOne", fields: [userOneId], references: [id], onDelete: Cascade)
+  userOne   User   @relation("UserOne", fields: [userOneId], references: [id], onDelete: Cascade)
 
   // reciever
   userTwoId String
-  userTwo   User              @relation("UserTwo", fields: [userTwoId], references: [id], onDelete: Cascade)
+  userTwo   User   @relation("UserTwo", fields: [userTwoId], references: [id], onDelete: Cascade)
 
   @@unique([userOneId, userTwoId])
 }

@@ -18,6 +18,7 @@ import {
   FederationMessageType,
   FriendRequestMessage,
   type AnyFederationMessage,
+  MessagesBefore,
 } from './federationDef';
 import { SubscriberService } from 'src/redis/subscriber/subscriber.service';
 import { InjectQueue } from '@nestjs/bullmq';
@@ -25,6 +26,9 @@ import { ConfigService } from '@nestjs/config';
 import axios from 'axios';
 import { Queue } from 'bullmq';
 import stringify from 'fast-json-stable-stringify';
+
+const OUTBOX_REQUEST_TTL_SECONDS = 300;
+const OUTBOX_MAX_MESSAGES = 100;
 
 @Injectable()
 export class FederationService {
@@ -335,5 +339,287 @@ export class FederationService {
         );
         throw new BadRequestException('Unsupported message type');
     }
+  }
+
+  async getFederationPublicKey(
+    senderFederationWithProto: string,
+  ): Promise<string> {
+    const senderFederation = senderFederationWithProto.replace(
+      /^https?:\/\//,
+      '',
+    );
+    const senderInfo = await this.prisma.knownFederation.findUnique({
+      where: { url: senderFederation },
+    });
+    if (!senderInfo) {
+      this.logger.warn(
+        `Requested public key for unknown federation ${senderFederation}. Cannot provide public key.`,
+      );
+      // fetch
+      try {
+        const response = await axios.get<{ publicKey?: string }>(
+          `https://${senderFederation}/federation/info`,
+          { timeout: 5000 },
+        );
+        const senderPublicKey = response.data.publicKey;
+        if (!senderPublicKey) {
+          this.logger.error(
+            `Federation ${senderFederation} did not provide a public key in its info response.`,
+          );
+          throw new BadRequestException(
+            'Invalid federation info response: missing public key',
+          );
+        }
+
+        try {
+          crypto.createPublicKey(senderPublicKey);
+        } catch (error: unknown) {
+          this.logger.error(
+            `Invalid public key format received from federation ${senderFederation}: ${FederationService.getErrorMessage(error)}`,
+          );
+          throw new BadRequestException(
+            'Invalid public key format received from federation',
+          );
+        }
+
+        await this.prisma.knownFederation.create({
+          data: {
+            url: senderFederation,
+            publicKey: senderPublicKey,
+          },
+        });
+
+        this.logger.log(
+          `Added ${senderFederation} to known federations with retrieved public key.`,
+        );
+      } catch (error: unknown) {
+        this.logger.error(
+          `Failed to retrieve info from federation ${senderFederation}: ${FederationService.getErrorMessage(error)}`,
+        );
+        throw new BadRequestException(
+          'Unable to retrieve public key for unknown federation',
+        );
+      }
+    }
+
+    return senderInfo!.publicKey;
+  }
+
+  async verifyMessage(
+    messageBefore: MessagesBefore,
+    senderFederationWithProto: string,
+    signature: string,
+    requestId: string,
+    timestamp: string,
+  ) {
+    const senderFederation = senderFederationWithProto.replace(
+      /^https?:\/\//,
+      '',
+    );
+    this.logger.debug(
+      `Verifying message of type ${messageBefore} from ${senderFederation} with request ID ${requestId} at timestamp ${timestamp}`,
+    );
+    const message = `$$${messageBefore}$$${senderFederation}.${requestId}@${timestamp}`;
+    const senderInfo = await this.prisma.knownFederation.findUnique({
+      where: { url: senderFederation },
+    });
+    if (!senderInfo) {
+      this.logger.warn(
+        `Received message from unknown federation ${senderFederation}. Cannot verify signature.`,
+      );
+      throw new BadRequestException(
+        'Unknown federation, please handshake first',
+      );
+    }
+    const verifier = crypto.createVerify('RSA-SHA256');
+    verifier.update(message);
+    verifier.end();
+    const isValid = verifier.verify(senderInfo.publicKey, signature, 'base64');
+    if (!isValid) {
+      this.logger.warn(
+        `Message signature verification failed for message of type ${messageBefore} from ${senderFederation}. Possible tampering detected.`,
+      );
+      throw new BadRequestException('Invalid signature for message');
+    }
+    this.logger.debug(
+      `Message signature verified successfully for message of type ${messageBefore} from ${senderFederation}.`,
+    );
+    return true;
+  }
+
+  async verifyOutboxRequest(
+    senderFederationWithProto: string,
+    signature: string,
+    requestId: string,
+    timestamp: string,
+  ): Promise<boolean> {
+    const senderFederation = senderFederationWithProto.replace(
+      /^https?:\/\//,
+      '',
+    );
+    this.logger.debug(
+      `Verifying outbox request from ${senderFederation} with request ID ${requestId} at timestamp ${timestamp}`,
+    );
+    const message = this.getGetOutboxMessage(
+      senderFederation,
+      requestId,
+      timestamp,
+    );
+    const senderInfo = await this.prisma.knownFederation.findUnique({
+      where: { url: senderFederation },
+    });
+    if (!senderInfo) {
+      this.logger.warn(
+        `Received outbox request from unknown federation ${senderFederation}. Cannot verify signature.`,
+      );
+      throw new BadRequestException(
+        'Unknown federation, please handshake first',
+      );
+    }
+    const verifier = crypto.createVerify('RSA-SHA256');
+    verifier.update(message);
+    verifier.end();
+    const isValid = verifier.verify(senderInfo.publicKey, signature, 'base64');
+    if (!isValid) {
+      this.logger.warn(
+        `Outbox request signature verification failed for request from ${senderFederation}. Possible tampering detected.`,
+      );
+      throw new BadRequestException('Invalid signature for outbox request');
+    }
+    this.logger.debug(
+      `Outbox request signature verified successfully for request from ${senderFederation}.`,
+    );
+    return true;
+  }
+
+  async getOutbox(
+    senderFederationWithProto: string,
+    signature: string,
+    requestId: string,
+    timestamp: string,
+  ) {
+    const senderFederation = senderFederationWithProto.replace(
+      /^https?:\/\//,
+      '',
+    );
+    this.logger.debug(
+      `Received request for outbox from ${senderFederation} with request ID ${requestId} at timestamp ${timestamp}`,
+    );
+    const isValid = await this.verifyOutboxRequest(
+      senderFederationWithProto,
+      signature,
+      requestId,
+      timestamp,
+    );
+    if (!isValid) {
+      this.logger.warn(
+        `Outbox request verification failed for request from ${senderFederation}. Rejecting request.`,
+      );
+      throw new BadRequestException('Invalid outbox request');
+    }
+
+    const timestampNumber = Number(timestamp);
+    if (!Number.isFinite(timestampNumber)) {
+      throw new BadRequestException('Invalid outbox request timestamp');
+    }
+    if (Math.abs(Date.now() - timestampNumber) > 5 * 60 * 1000) {
+      throw new BadRequestException('Outbox request timestamp is too old');
+    }
+
+    const requestNonceKey = `federation:outbox:request:${senderFederation}:${requestId}`;
+    const isFreshRequest = await this.redis.set(
+      requestNonceKey,
+      '1',
+      'EX',
+      OUTBOX_REQUEST_TTL_SECONDS,
+      'NX',
+    );
+    if (!isFreshRequest) {
+      throw new BadRequestException(
+        'Replay attack: outbox request already used',
+      );
+    }
+
+    const messages = await this.collectPendingOutboxMessages(senderFederation);
+
+    this.logger.debug(
+      `Outbox request verified successfully for request from ${senderFederation}. Returning outbox messages.`,
+    );
+    return { messages };
+  }
+
+  private normalizeFederationUrl(value: string): string {
+    return value
+      .trim()
+      .replace(/^https?:\/\//i, '')
+      .replace(/\/$/, '')
+      .toLowerCase();
+  }
+
+  private async collectPendingOutboxMessages(
+    senderFederation: string,
+  ): Promise<AnyFederationMessage[]> {
+    const jobs = await this.federationOutgoingQueue.getJobs([
+      'waiting',
+      'delayed',
+      'active',
+      'prioritized',
+    ]);
+
+    const normalizedSenderFederation =
+      this.normalizeFederationUrl(senderFederation);
+
+    return jobs
+      .map((job) => job.data)
+      .filter((message): message is AnyFederationMessage =>
+        Boolean(message?.targetFederation),
+      )
+      .filter(
+        (message) =>
+          this.normalizeFederationUrl(message.targetFederation) ===
+          normalizedSenderFederation,
+      )
+      .sort((left, right) => left.timestamp - right.timestamp)
+      .slice(0, OUTBOX_MAX_MESSAGES);
+  }
+
+  private getGetOutboxMessage = (
+    senderFederationWithoutProto: string,
+    requestId: string,
+    timestamp: string,
+  ) => {
+    return `$$${MessagesBefore.GET_OUTBOX}$$${senderFederationWithoutProto}.${requestId}@${timestamp}`;
+  };
+
+  async handleHandshake(
+    senderFederationWithProto: string,
+    signature: string,
+    requestId: string,
+    timestamp: string,
+  ) {
+    const senderFederation = senderFederationWithProto.replace(
+      /^https?:\/\//,
+      '',
+    );
+    this.logger.debug(
+      `Received handshake request from ${senderFederation} with request ID ${requestId} at timestamp ${timestamp}`,
+    );
+    const isValid = await this.verifyMessage(
+      MessagesBefore.HANDSHAKE,
+      senderFederationWithProto,
+      signature,
+      requestId,
+      timestamp,
+    );
+    if (!isValid) {
+      this.logger.warn(
+        `Handshake message signature verification failed for request from ${senderFederation}. Possible tampering detected.`,
+      );
+      throw new BadRequestException('Invalid signature for handshake');
+    }
+    this.logger.debug(
+      `Handshake message signature verified successfully for request from ${senderFederation}. Adding to known federations if not already present.`,
+    );
+    return this.getInfo();
   }
 }

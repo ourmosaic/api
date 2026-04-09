@@ -1,3 +1,10 @@
+export const messageHeader = `$MOSAIC$`;
+
+export enum MessagesBefore {
+  GET_OUTBOX = `${messageHeader}GET_OUTBOX`,
+  HANDSHAKE = `${messageHeader}HANDSHAKE`,
+}
+
 enum FederationMessageType {
   HANDSHAKE = 'HANDSHAKE',
   ERROR = 'ERROR',
@@ -7,6 +14,7 @@ enum FederationMessageType {
   USER_UPDATE = 'USER_UPDATE',
   SYSTEM_UPDATE = 'SYSTEM_UPDATE',
   FRONT_UPDATE = 'FRONT_UPDATE',
+  GET_OUTBOX = 'GET_OUTBOX',
 }
 
 type FederationMessage = {
