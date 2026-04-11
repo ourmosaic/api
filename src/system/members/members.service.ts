@@ -178,6 +178,7 @@ export class MembersService {
       where: {
         systemId: system.id,
       },
+      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
       include: includeCustomFields
         ? {
             customFieldValues: {
