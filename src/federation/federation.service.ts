@@ -45,6 +45,7 @@ export class FederationService {
 
   constructor(
     private readonly prisma: PrismaService,
+    @Inject(forwardRef(() => MembersService))
     private readonly membersService: MembersService,
     private readonly usersService: UsersService,
     private readonly systemsService: SystemService,

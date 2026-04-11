@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { forwardRef, Inject, Injectable } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { MembersService } from '../members/members.service';
 import { SystemService } from '../system.service';
@@ -9,6 +9,7 @@ import { CreateGroupDto } from './dto/createGroup.dto';
 export class GroupsService {
   constructor(
     private prisma: PrismaService,
+    @Inject(forwardRef(() => MembersService))
     private membersService: MembersService,
     private systemService: SystemService,
   ) {}
