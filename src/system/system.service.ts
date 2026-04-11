@@ -234,4 +234,15 @@ export class SystemService {
       },
     });
   }
+
+  async listCustomFields(system: System): Promise<CustomField[]> {
+    return this.prismaService.customField.findMany({
+      where: {
+        systemId: system.id,
+      },
+      orderBy: {
+        order: 'asc',
+      },
+    });
+  }
 }

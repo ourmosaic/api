@@ -84,6 +84,14 @@ export class SystemController {
     return;
   }
 
+  @Get('@me/customFields')
+  @Version('1')
+  @UseGuards(AuthGuard)
+  @UseInterceptors(SystemInterceptor)
+  async listCustomFields(@Sys() system: System): Promise<CustomField[]> {
+    return this.systemService.listCustomFields(system);
+  }
+
   @Patch('@me/avatar')
   @Version('1')
   @UseGuards(AuthGuard)
