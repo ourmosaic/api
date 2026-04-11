@@ -1,4 +1,8 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { ConfigService } from '@nestjs/config';
+import { PrismaService } from '../prisma/prisma.service';
+import { StorageService } from '../storage/storage.service';
+import { SystemService } from '../system/system.service';
 import { ImportService } from './import.service';
 
 describe('ImportService', () => {
@@ -6,7 +10,13 @@ describe('ImportService', () => {
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
-      providers: [ImportService],
+      providers: [
+        ImportService,
+        { provide: PrismaService, useValue: {} },
+        { provide: StorageService, useValue: {} },
+        { provide: SystemService, useValue: {} },
+        { provide: ConfigService, useValue: { get: jest.fn() } },
+      ],
     }).compile();
 
     service = module.get<ImportService>(ImportService);

@@ -13,6 +13,7 @@ import {
   UseInterceptors,
   Version,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { MembersService } from './members.service';
 import { AuthGuard } from 'src/auth/auth.guard';
 import { SystemInterceptor } from '../system.interceptor';
@@ -29,14 +30,23 @@ import { UploadedFile } from '@nestjs/common';
 import { ApiForbiddenResponse, ApiOkResponse } from '@nestjs/swagger';
 import { Member as MemberEntity } from 'src/@generated/prisma-nestjs-dto/member.entity';
 import { FrontSession as FrontSessionEntity } from 'src/@generated/prisma-nestjs-dto/frontSession.entity';
-import { MINIO_BUCKET_NAME, MINIO_URL } from 'src/utils/constants';
+import { buildMinioUrl, MINIO_BUCKET_NAME } from 'src/utils/constants';
 
 @Controller('system/@me/members')
 export class MembersController {
   constructor(
     private readonly membersService: MembersService,
     private readonly storageService: StorageService,
+    private readonly configService: ConfigService,
   ) {}
+
+  private getMinioUrl(): string {
+    return buildMinioUrl({
+      MINIO_ENDPOINT: this.configService.get<string>('MINIO_ENDPOINT'),
+      MINIO_PORT: this.configService.get<string>('MINIO_PORT'),
+      MINIO_USE_SSL: this.configService.get<string>('MINIO_USE_SSL'),
+    });
+  }
 
   @Get()
   @Version('1')
@@ -278,6 +288,7 @@ export class MembersController {
     @UploadedFile() file: Express.Multer.File,
   ): Promise<Member> {
     try {
+      const minioUrl = this.getMinioUrl();
       const metadata = await sharp(file.buffer).metadata();
       if (!['jpeg', 'jpg', 'png', 'webp'].includes(metadata.format)) {
         throw new BadRequestException(errorCodes.GIFS_NOT_SUPPORTED);
@@ -296,7 +307,7 @@ export class MembersController {
       );
       if (member.avatarUrl) {
         const oldFileName = member.avatarUrl.replace(
-          `${MINIO_URL}/${MINIO_BUCKET_NAME}/`,
+          `${minioUrl}/${MINIO_BUCKET_NAME}/`,
           '',
         );
         await this.storageService
@@ -317,7 +328,7 @@ export class MembersController {
       return this.membersService.updateAvatarUrl(
         memberId,
         system,
-        `${MINIO_URL}/${MINIO_BUCKET_NAME}/${fileName}`,
+        `${minioUrl}/${MINIO_BUCKET_NAME}/${fileName}`,
       );
     } catch (err) {
       if (err instanceof BadRequestException) {

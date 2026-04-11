@@ -1,4 +1,5 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { PrivacyLevel, User } from '@prisma/client';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { FieldType } from 'src/system/dto/updateCustomFieldDefinition.dto';
@@ -8,7 +9,7 @@ import errorCodes from 'src/utils/errorCodes';
 import axios from 'axios';
 import sharp from 'sharp';
 import { StorageService } from 'src/storage/storage.service';
-import { MINIO_BUCKET_NAME, MINIO_URL } from 'src/utils/constants';
+import { buildMinioUrl, MINIO_BUCKET_NAME } from 'src/utils/constants';
 
 const BATCH_SIZE = 1000;
 
@@ -131,9 +132,20 @@ export class ImportService {
     private readonly prisma: PrismaService,
     private readonly storageService: StorageService,
     private readonly systemService: SystemService,
+    private readonly configService: ConfigService,
   ) {}
 
+  private getMinioUrl(): string {
+    return buildMinioUrl({
+      MINIO_ENDPOINT: this.configService.get<string>('MINIO_ENDPOINT'),
+      MINIO_PORT: this.configService.get<string>('MINIO_PORT'),
+      MINIO_USE_SSL: this.configService.get<string>('MINIO_USE_SSL'),
+    });
+  }
+
   async importFromSimplyPlural(user: User, data: unknown) {
+    const minioUrl = this.getMinioUrl();
+
     if (!isSimplyPluralImportPayload(data)) {
       throw new BadRequestException();
     }
@@ -304,7 +316,7 @@ export class ImportService {
             metadata.size,
             'image/webp',
           );
-          avatarUrl = `${MINIO_URL}/${MINIO_BUCKET_NAME}/${fileName}`;
+          avatarUrl = `${minioUrl}/${MINIO_BUCKET_NAME}/${fileName}`;
         } catch (error) {
           console.error(
             `Failed to upload avatar for member ${member.name}:`,

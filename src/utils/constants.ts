@@ -2,7 +2,23 @@ import * as process from 'node:process';
 
 export const MINIO_BUCKET_NAME = 'mosaic';
 
-export const MINIO_URL = `${process.env.MINIO_USE_SSL ? 'https' : 'http'}://${process.env.MINIO_ENDPOINT}${process.env.MINIO_PORT != "443" && process.env.MINIO_PORT != "80" ? ":" + process.env.MINIO_PORT : ""}` || 'https://storage.ourmosaic.space';
+export const MINIO_FALLBACK_URL = 'https://storage.ourmosaic.space';
+
+export const buildMinioUrl = (env: NodeJS.ProcessEnv = process.env): string => {
+  const endpoint = env.MINIO_ENDPOINT?.trim();
+  if (!endpoint) {
+    return MINIO_FALLBACK_URL;
+  }
+
+  const useSSL = env.MINIO_USE_SSL?.toLowerCase() === 'true';
+  const protocol = useSSL ? 'https' : 'http';
+  const port = env.MINIO_PORT?.trim();
+  const hasCustomPort = !!port && port !== '80' && port !== '443';
+
+  return `${protocol}://${endpoint}${hasCustomPort ? `:${port}` : ''}`;
+};
+
+export const getMinioUrl = (): string => buildMinioUrl(process.env);
 
 export const REDIS_EVENTS = {
   FRIENDSHIP_UPDATED: 'FRIENDSHIP_UPDATED',

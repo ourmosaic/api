@@ -3,13 +3,14 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { CreateSystemDto } from './dto/createSystem.dto';
 import { CustomField, System, User } from '@prisma/client';
 import errorCodes from 'src/utils/errorCodes';
 import { UpdateCustomFieldDefinitionDto } from './dto/updateCustomFieldDefinition.dto';
 import { StorageService } from 'src/storage/storage.service';
-import { MINIO_BUCKET_NAME, MINIO_URL } from 'src/utils/constants';
+import { buildMinioUrl, MINIO_BUCKET_NAME } from 'src/utils/constants';
 import sharp from 'sharp';
 import { UpdateSystemDto } from 'src/@generated/prisma-nestjs-dto/update-system.dto';
 
@@ -18,7 +19,16 @@ export class SystemService {
   constructor(
     private readonly prismaService: PrismaService,
     private readonly storageService: StorageService,
+    private readonly configService: ConfigService,
   ) {}
+
+  private getMinioUrl(): string {
+    return buildMinioUrl({
+      MINIO_ENDPOINT: this.configService.get<string>('MINIO_ENDPOINT'),
+      MINIO_PORT: this.configService.get<string>('MINIO_PORT'),
+      MINIO_USE_SSL: this.configService.get<string>('MINIO_USE_SSL'),
+    });
+  }
 
   async createSystem(createSystemDto: CreateSystemDto, user: User) {
     // check if user already has a system
@@ -170,6 +180,7 @@ export class SystemService {
     file: Express.Multer.File,
   ): Promise<System> {
     try {
+      const minioUrl = this.getMinioUrl();
       const metadata = await sharp(file.buffer).metadata();
       if (!['jpeg', 'jpg', 'png', 'webp'].includes(metadata.format)) {
         throw new BadRequestException(errorCodes.GIFS_NOT_SUPPORTED);
@@ -188,11 +199,11 @@ export class SystemService {
         'image/webp',
       );
 
-      const avatarUrl = `${MINIO_URL}/${MINIO_BUCKET_NAME}/${fileName}`;
+      const avatarUrl = `${minioUrl}/${MINIO_BUCKET_NAME}/${fileName}`;
 
       if (system.avatarUrl) {
         const oldFileName = system.avatarUrl.replace(
-          `${MINIO_URL}/${MINIO_BUCKET_NAME}/`,
+          `${minioUrl}/${MINIO_BUCKET_NAME}/`,
           '',
         );
         await this.storageService
