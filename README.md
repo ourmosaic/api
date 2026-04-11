@@ -34,6 +34,30 @@
 - [X] **Simply Plural Import**: Easily migrate your existing data.
 - [X] **Privacy by Design**: Granular control over what you share with friends.
 
+### Real-time Notifications (SSE)
+
+- `GET /v1/notifications/stream` -> single multiplexed stream for friendship + local front sessions + federated front sessions
+- `GET /v1/notifications/friendship` -> friend requests/updates for the authenticated user
+- `GET /v1/notifications/front-sessions` -> front session updates for the authenticated system
+- `GET /v1/notifications/federation/front-sessions` -> federated front updates relayed from remote instances
+
+All endpoints use Server-Sent Events and require the same Bearer authentication as the REST API.
+
+Example payload on `/v1/notifications/stream`:
+
+```json
+{
+  "topic": "front-sessions",
+  "payload": {
+    "event": "FRONT_SESSION_STARTED",
+    "data": {
+      "sessionId": "...",
+      "memberId": "..."
+    }
+  }
+}
+```
+
 ---
 
 ## Technical Stack

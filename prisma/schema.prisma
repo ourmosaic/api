@@ -73,6 +73,7 @@ model System {
   description String?
   color       String?
   domain      String?
+  distantId   String? // ID distant pour les systèmes fédérés
 
   userId String @unique
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -95,6 +96,7 @@ model Member {
   role        String?
   description String?
   domain      String?
+  distantId   String? // ID distant pour les membres fédérés
   inDormancy  Boolean      @default(false)
   privacy     PrivacyLevel @default(PRIVATE)
   createdAt   DateTime     @default(now())
@@ -119,6 +121,7 @@ model Group {
   color     String?
   icon      String?
   domain    String?
+  distantId String? // ID distant pour les groupes fédérés
   createdAt DateTime @default(now())
 
   parentId String? @default("root")

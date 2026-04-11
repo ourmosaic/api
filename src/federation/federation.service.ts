@@ -16,6 +16,7 @@ import { SystemService } from 'src/system/system.service';
 import { UsersService } from 'src/users/users.service';
 import {
   FederationMessageType,
+  FrontUpdateEvent,
   FriendRequestMessage,
   type AnyFederationMessage,
   MessagesBefore,
@@ -26,6 +27,8 @@ import { ConfigService } from '@nestjs/config';
 import axios from 'axios';
 import { Queue } from 'bullmq';
 import stringify from 'fast-json-stable-stringify';
+import { REDIS_EVENTS } from 'src/utils/constants';
+import { FriendshipStatus } from '@prisma/client';
 
 const OUTBOX_REQUEST_TTL_SECONDS = 300;
 const OUTBOX_MAX_MESSAGES = 100;
@@ -143,6 +146,71 @@ export class FederationService {
     this.logger.log(
       `Enqueued message for ${message.targetFederation} : ${stringify(message)}`,
     );
+  }
+
+  async broadcastMessageToKnownFederations(
+    message: Omit<
+      AnyFederationMessage,
+      'targetFederation' | 'signature' | 'nonce'
+    >,
+  ): Promise<void> {
+    const knownFederations = await this.prisma.knownFederation.findMany({
+      select: { url: true },
+    });
+    if (knownFederations.length === 0) {
+      return;
+    }
+
+    await this.broadcastMessageToFederations(
+      message,
+      knownFederations.map((federation) => federation.url),
+    );
+  }
+
+  async broadcastMessageToFederations(
+    message: Omit<
+      AnyFederationMessage,
+      'targetFederation' | 'signature' | 'nonce'
+    >,
+    targetFederations: string[],
+  ): Promise<void> {
+    const normalizedTargets = Array.from(
+      new Set(
+        targetFederations
+          .map((target) => this.normalizeFederationUrl(target))
+          .filter((target) => target.length > 0),
+      ),
+    );
+    if (normalizedTargets.length === 0) {
+      return;
+    }
+
+    const knownFederations = await this.prisma.knownFederation.findMany({
+      where: { url: { in: normalizedTargets } },
+      select: { url: true },
+    });
+    if (knownFederations.length === 0) {
+      this.logger.debug('No known federation matches the provided targets');
+      return;
+    }
+
+    const enqueueResults = await Promise.allSettled(
+      knownFederations.map((federation) =>
+        this.enqueueMessage({
+          ...message,
+          targetFederation: federation.url,
+        } as AnyFederationMessage),
+      ),
+    );
+
+    const failedCount = enqueueResults.filter(
+      (result) => result.status === 'rejected',
+    ).length;
+    if (failedCount > 0) {
+      this.logger.warn(
+        `Failed to enqueue ${failedCount} federation notification(s) out of ${knownFederations.length}`,
+      );
+    }
   }
 
   async receiveMessage(
@@ -271,6 +339,32 @@ export class FederationService {
       `Message signature verified successfully for message from ${senderFederation}. In a real implementation, we would now process the message based on its type and content.`,
     );
     switch (message.type) {
+      case FederationMessageType.FRONT_UPDATE: {
+        const frontUpdateMessage = message;
+        const event =
+          frontUpdateMessage.event === FrontUpdateEvent.FRONT_SESSION_ENDED
+            ? REDIS_EVENTS.FRONT_SESSION_ENDED
+            : REDIS_EVENTS.FRONT_SESSION_STARTED;
+
+        await this.redis.publish(
+          'federation:frontSessions',
+          stringify({
+            event,
+            sourceFederation: senderFederation,
+            data: {
+              systemId: frontUpdateMessage.systemId,
+              memberId: frontUpdateMessage.memberId,
+              sessionId: frontUpdateMessage.frontId,
+              note: frontUpdateMessage.note,
+            },
+          }),
+        );
+
+        this.logger.log(
+          `Processed federated front update ${frontUpdateMessage.event} from ${senderFederation}`,
+        );
+        return { message: 'Front update processed successfully' };
+      }
       case FederationMessageType.FRIEND_REQUEST: {
         const friendRequestMessage: FriendRequestMessage = message;
         this.logger.debug(
@@ -333,6 +427,116 @@ export class FederationService {
         );
         return { message: 'Friend request processed successfully' };
       }
+      case FederationMessageType.FRIEND_ACCEPT: {
+        const friendAcceptMessage = message;
+        const recipientUser = await this.prisma.user.findFirst({
+          where: { username: friendAcceptMessage.recipientUsername },
+        });
+        if (!recipientUser) {
+          throw new BadRequestException('Recipient user not found');
+        }
+
+        let senderUser = await this.prisma.user.findFirst({
+          where: {
+            username: friendAcceptMessage.senderUsername,
+            isFederated: true,
+            domain: senderFederation,
+          },
+        });
+
+        if (!senderUser) {
+          senderUser = await this.prisma.user.create({
+            data: {
+              username: friendAcceptMessage.senderUsername,
+              password: crypto.randomBytes(16).toString('hex'),
+              isFederated: true,
+              domain: senderFederation,
+              email: `${friendAcceptMessage.senderUsername}@${senderFederation}`,
+            },
+          });
+        }
+
+        await this.prisma.friendship.upsert({
+          where: {
+            userOneId_userTwoId: {
+              userOneId: recipientUser.id,
+              userTwoId: senderUser.id,
+            },
+          },
+          update: { status: FriendshipStatus.ACCEPTED },
+          create: {
+            userOneId: recipientUser.id,
+            userTwoId: senderUser.id,
+            status: FriendshipStatus.ACCEPTED,
+          },
+        });
+
+        await this.prisma.friendship.upsert({
+          where: {
+            userOneId_userTwoId: {
+              userOneId: senderUser.id,
+              userTwoId: recipientUser.id,
+            },
+          },
+          update: { status: FriendshipStatus.ACCEPTED },
+          create: {
+            userOneId: senderUser.id,
+            userTwoId: recipientUser.id,
+            status: FriendshipStatus.ACCEPTED,
+          },
+        });
+
+        await this.redis.publish(
+          `user:${recipientUser.id}:friendRequests`,
+          stringify({
+            type: REDIS_EVENTS.FRIENDSHIP_REQUEST_UPDATED,
+            status: FriendshipStatus.ACCEPTED,
+            username: senderUser.username,
+            distantId: friendAcceptMessage.distantId,
+          }),
+        );
+
+        return { message: 'Friend accept processed successfully' };
+      }
+      case FederationMessageType.FRIEND_REJECT: {
+        const friendRejectMessage = message;
+        const recipientUser = await this.prisma.user.findFirst({
+          where: { username: friendRejectMessage.recipientUsername },
+        });
+        if (!recipientUser) {
+          throw new BadRequestException('Recipient user not found');
+        }
+
+        const senderUser = await this.prisma.user.findFirst({
+          where: {
+            username: friendRejectMessage.senderUsername,
+            isFederated: true,
+            domain: senderFederation,
+          },
+        });
+
+        if (senderUser) {
+          await this.prisma.friendship.deleteMany({
+            where: {
+              OR: [
+                { userOneId: recipientUser.id, userTwoId: senderUser.id },
+                { userOneId: senderUser.id, userTwoId: recipientUser.id },
+              ],
+            },
+          });
+        }
+
+        await this.redis.publish(
+          `user:${recipientUser.id}:friendRequests`,
+          stringify({
+            type: REDIS_EVENTS.FRIENDSHIP_REMOVED,
+            username: friendRejectMessage.senderUsername,
+            distantId: friendRejectMessage.distantId,
+          }),
+        );
+
+        return { message: 'Friend reject processed successfully' };
+      }
       default:
         this.logger.warn(
           `Received unsupported message type ${message.type} from federation ${senderFederation}. No processing implemented for this message type.`,
@@ -351,58 +555,60 @@ export class FederationService {
     const senderInfo = await this.prisma.knownFederation.findUnique({
       where: { url: senderFederation },
     });
-    if (!senderInfo) {
-      this.logger.warn(
-        `Requested public key for unknown federation ${senderFederation}. Cannot provide public key.`,
-      );
-      // fetch
-      try {
-        const response = await axios.get<{ publicKey?: string }>(
-          `https://${senderFederation}/federation/info`,
-          { timeout: 5000 },
-        );
-        const senderPublicKey = response.data.publicKey;
-        if (!senderPublicKey) {
-          this.logger.error(
-            `Federation ${senderFederation} did not provide a public key in its info response.`,
-          );
-          throw new BadRequestException(
-            'Invalid federation info response: missing public key',
-          );
-        }
-
-        try {
-          crypto.createPublicKey(senderPublicKey);
-        } catch (error: unknown) {
-          this.logger.error(
-            `Invalid public key format received from federation ${senderFederation}: ${FederationService.getErrorMessage(error)}`,
-          );
-          throw new BadRequestException(
-            'Invalid public key format received from federation',
-          );
-        }
-
-        await this.prisma.knownFederation.create({
-          data: {
-            url: senderFederation,
-            publicKey: senderPublicKey,
-          },
-        });
-
-        this.logger.log(
-          `Added ${senderFederation} to known federations with retrieved public key.`,
-        );
-      } catch (error: unknown) {
-        this.logger.error(
-          `Failed to retrieve info from federation ${senderFederation}: ${FederationService.getErrorMessage(error)}`,
-        );
-        throw new BadRequestException(
-          'Unable to retrieve public key for unknown federation',
-        );
-      }
+    if (senderInfo) {
+      return senderInfo.publicKey;
     }
 
-    return senderInfo!.publicKey;
+    this.logger.warn(
+      `Requested public key for unknown federation ${senderFederation}. Cannot provide public key.`,
+    );
+
+    try {
+      const response = await axios.get<{ publicKey?: string }>(
+        `https://${senderFederation}/federation/info`,
+        { timeout: 5000 },
+      );
+      const senderPublicKey = response.data.publicKey;
+      if (!senderPublicKey) {
+        this.logger.error(
+          `Federation ${senderFederation} did not provide a public key in its info response.`,
+        );
+        throw new BadRequestException(
+          'Invalid federation info response: missing public key',
+        );
+      }
+
+      try {
+        crypto.createPublicKey(senderPublicKey);
+      } catch (error: unknown) {
+        this.logger.error(
+          `Invalid public key format received from federation ${senderFederation}: ${FederationService.getErrorMessage(error)}`,
+        );
+        throw new BadRequestException(
+          'Invalid public key format received from federation',
+        );
+      }
+
+      await this.prisma.knownFederation.create({
+        data: {
+          url: senderFederation,
+          publicKey: senderPublicKey,
+        },
+      });
+
+      this.logger.log(
+        `Added ${senderFederation} to known federations with retrieved public key.`,
+      );
+
+      return senderPublicKey;
+    } catch (error: unknown) {
+      this.logger.error(
+        `Failed to retrieve info from federation ${senderFederation}: ${FederationService.getErrorMessage(error)}`,
+      );
+      throw new BadRequestException(
+        'Unable to retrieve public key for unknown federation',
+      );
+    }
   }
 
   async verifyMessage(

@@ -2,15 +2,24 @@ import { BadRequestException } from '@nestjs/common';
 import { FederationService } from './federation.service';
 import {
   FederationMessageType,
+  FrontUpdateEvent,
   type AnyFederationMessage,
 } from './federationDef';
 
 describe('FederationService', () => {
   type FederationServiceDeps = ConstructorParameters<typeof FederationService>;
+  type FrontUpdateMessage = Extract<
+    AnyFederationMessage,
+    { type: FederationMessageType.FRONT_UPDATE }
+  >;
 
   let service: FederationService;
   let redisSetMock: jest.Mock;
+  let redisPublishMock: jest.Mock;
   let queueGetJobsMock: jest.Mock;
+  let queueAddMock: jest.Mock;
+  let knownFederationFindManyMock: jest.Mock;
+  let knownFederationFindUniqueMock: jest.Mock;
 
   const createMessage = (
     targetFederation: string,
@@ -23,11 +32,35 @@ describe('FederationService', () => {
     recipientUsername: 'bob',
   });
 
+  const createFrontUpdateMessage = (): Omit<
+    FrontUpdateMessage,
+    'targetFederation' | 'signature' | 'nonce'
+  > => ({
+    type: FederationMessageType.FRONT_UPDATE,
+    timestamp: Date.now(),
+    systemId: 'system-1',
+    memberId: 'member-1',
+    frontId: 'session-1',
+    event: FrontUpdateEvent.FRONT_SESSION_STARTED,
+  });
+
   beforeEach(() => {
     redisSetMock = jest.fn().mockResolvedValue('OK');
+    redisPublishMock = jest.fn().mockResolvedValue(1);
     queueGetJobsMock = jest.fn().mockResolvedValue([]);
+    queueAddMock = jest.fn().mockResolvedValue(undefined);
+    knownFederationFindManyMock = jest.fn().mockResolvedValue([]);
+    knownFederationFindUniqueMock = jest.fn().mockResolvedValue({
+      url: 'remote.example',
+      publicKey: '-----BEGIN PUBLIC KEY-----\nmock\n-----END PUBLIC KEY-----',
+    });
 
-    const prismaMock = {} as FederationServiceDeps[0];
+    const prismaMock = {
+      knownFederation: {
+        findMany: knownFederationFindManyMock,
+        findUnique: knownFederationFindUniqueMock,
+      },
+    } as unknown as FederationServiceDeps[0];
     const membersServiceMock = {} as FederationServiceDeps[1];
     const usersServiceMock = {} as FederationServiceDeps[2];
     const systemServiceMock = {} as FederationServiceDeps[3];
@@ -35,6 +68,7 @@ describe('FederationService', () => {
     const groupsServiceMock = {} as FederationServiceDeps[5];
     const redisMock = {
       set: redisSetMock,
+      publish: redisPublishMock,
     } as unknown as FederationServiceDeps[6];
     const configServiceMock = {
       get: jest.fn((key: string) =>
@@ -43,7 +77,7 @@ describe('FederationService', () => {
     } as unknown as FederationServiceDeps[7];
     const queueMock = {
       getJobs: queueGetJobsMock,
-      add: jest.fn(),
+      add: queueAddMock,
     } as unknown as FederationServiceDeps[8];
 
     service = new FederationService(
@@ -103,5 +137,70 @@ describe('FederationService', () => {
         'not-a-number',
       ),
     ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it('broadcasts front updates to all known federations', async () => {
+    knownFederationFindManyMock.mockResolvedValue([
+      { url: 'one.example' },
+      { url: 'two.example' },
+    ]);
+
+    await service.broadcastMessageToKnownFederations(
+      createFrontUpdateMessage(),
+    );
+
+    expect(queueAddMock).toHaveBeenCalledTimes(2);
+  });
+
+  it('broadcasts only to targeted known federations', async () => {
+    knownFederationFindManyMock.mockResolvedValue([{ url: 'one.example' }]);
+
+    const targetedBroadcaster = service as unknown as {
+      broadcastMessageToFederations: (
+        message: Omit<
+          FrontUpdateMessage,
+          'targetFederation' | 'signature' | 'nonce'
+        >,
+        targetFederations: string[],
+      ) => Promise<void>;
+    };
+
+    await targetedBroadcaster.broadcastMessageToFederations(
+      createFrontUpdateMessage(),
+      ['https://one.example', 'unknown.example', 'one.example'],
+    );
+
+    expect(knownFederationFindManyMock).toHaveBeenCalledWith({
+      where: { url: { in: ['one.example', 'unknown.example'] } },
+      select: { url: true },
+    });
+    expect(queueAddMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('publishes incoming FRONT_UPDATE messages on federated notification channel', async () => {
+    jest.spyOn(service, 'verifyMessageIntegrity').mockReturnValue(true);
+
+    const response = await service.receiveMessage(
+      {
+        type: FederationMessageType.FRONT_UPDATE,
+        timestamp: Date.now(),
+        targetFederation: 'local.instance.example',
+        nonce: 'nonce-1',
+        event: FrontUpdateEvent.FRONT_SESSION_STARTED,
+        systemId: 'system-1',
+        memberId: 'member-1',
+        frontId: 'session-1',
+      },
+      'https://remote.example',
+      'signature',
+    );
+
+    expect(response).toEqual({
+      message: 'Front update processed successfully',
+    });
+    expect(redisPublishMock).toHaveBeenCalledWith(
+      'federation:frontSessions',
+      expect.any(String),
+    );
   });
 });

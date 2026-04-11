@@ -15,7 +15,7 @@ import { FederationProcessor } from './federation.processor';
 
 @Module({
   imports: [
-    MembersModule,
+    forwardRef(() => MembersModule),
     SystemModule,
     GroupsModule,
     AuthModule,

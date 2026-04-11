@@ -11,6 +11,8 @@ import {
 } from '@prisma/client';
 import {
   FederationMessageType,
+  FriendAcceptMessage,
+  FriendRejectMessage,
   FriendRequestMessage,
 } from 'src/federation/federationDef';
 import { PrismaService } from 'src/prisma/prisma.service';
@@ -37,6 +39,7 @@ export class FriendshipService {
       const message: FriendRequestMessage = {
         type: FederationMessageType.FRIEND_REQUEST,
         timestamp: Date.now(),
+        distantId: sender.id,
         senderUsername: sender.username,
         recipientUsername: dto.username,
         targetFederation: dto.federationUrl,
@@ -112,6 +115,36 @@ export class FriendshipService {
     const newStatus = accept
       ? FriendshipStatus.ACCEPTED
       : FriendshipStatus.REJECTED;
+    const requestSender = await this.prisma.user.findUnique({
+      where: { id: request.userOneId },
+    });
+
+    const shouldNotifyFederation =
+      Boolean(requestSender?.isFederated) && Boolean(requestSender?.domain);
+
+    if (shouldNotifyFederation) {
+      const baseMessage = {
+        timestamp: Date.now(),
+        targetFederation: requestSender!.domain!,
+        distantId: user.id,
+        senderUsername: user.username,
+        recipientUsername: requestSender!.username,
+      };
+      if (accept) {
+        const message: FriendAcceptMessage = {
+          ...baseMessage,
+          type: FederationMessageType.FRIEND_ACCEPT,
+        };
+        await this.federationService.enqueueMessage(message);
+      } else {
+        const message: FriendRejectMessage = {
+          ...baseMessage,
+          type: FederationMessageType.FRIEND_REJECT,
+        };
+        await this.federationService.enqueueMessage(message);
+      }
+    }
+
     if (!accept) {
       await this.prisma.friendship.delete({ where: { id: requestId } });
       await this.redis.publish(

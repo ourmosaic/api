@@ -1,11 +1,19 @@
 import {
   BadRequestException,
+  Inject,
   Injectable,
   NotFoundException,
+  forwardRef,
 } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { SystemService } from '../system.service';
-import type { Member, System, FrontSession } from '@prisma/client';
+import {
+  FriendshipStatus,
+  FriendshipType,
+  type Member,
+  type System,
+  type FrontSession,
+} from '@prisma/client';
 import { CreateMemberDto } from './dto/createMember.dto';
 import { UpdateMemberDto } from './dto/updateMember.dto';
 import errorCodes from 'src/utils/errorCodes';
@@ -13,6 +21,24 @@ import { FieldType } from '../dto/updateCustomFieldDefinition.dto';
 import { UpdateFieldContentDto } from './dto/updateFieldContent.dto';
 import { RedisService } from 'src/redis/redis.service';
 import { REDIS_EVENTS } from 'src/utils/constants';
+import { FederationService } from 'src/federation/federation.service';
+import { FederationMessageType } from 'src/federation/federationDef';
+
+type FrontUpdateEventName = 'FRONT_SESSION_STARTED' | 'FRONT_SESSION_ENDED';
+type FederationFrontUpdateBroadcastPayload = {
+  type: FederationMessageType.FRONT_UPDATE;
+  timestamp: number;
+  systemId: string;
+  memberId: string;
+  frontId: string;
+  event: FrontUpdateEventName;
+};
+type FederationBroadcaster = {
+  broadcastMessageToFederations: (
+    message: FederationFrontUpdateBroadcastPayload,
+    targetFederations: string[],
+  ) => Promise<void>;
+};
 
 @Injectable()
 export class MembersService {
@@ -20,7 +46,62 @@ export class MembersService {
     private readonly prisma: PrismaService,
     private readonly systemService: SystemService,
     private readonly redisService: RedisService,
+    @Inject(forwardRef(() => FederationService))
+    private readonly federationService: FederationService,
   ) {}
+
+  private async notifyFederatedFrontUpdate(
+    system: System,
+    memberId: string,
+    frontId: string,
+    event: FrontUpdateEventName,
+  ): Promise<void> {
+    const authorizedFriendships = await this.prisma.friendship.findMany({
+      where: {
+        userOneId: system.userId,
+        status: FriendshipStatus.ACCEPTED,
+        type: FriendshipType.SUPERFRIENDS,
+        userTwo: {
+          isFederated: true,
+          domain: { not: null },
+        },
+      },
+      select: {
+        userTwo: {
+          select: { domain: true },
+        },
+      },
+    });
+
+    const targetFederations = Array.from(
+      new Set(
+        authorizedFriendships
+          .map((friendship) => friendship.userTwo.domain)
+          .filter((domain): domain is string =>
+            Boolean(domain && domain.trim().length > 0),
+          ),
+      ),
+    );
+    if (targetFederations.length === 0) {
+      return;
+    }
+
+    const message: FederationFrontUpdateBroadcastPayload = {
+      type: FederationMessageType.FRONT_UPDATE,
+      timestamp: Date.now(),
+      systemId: system.id,
+      memberId,
+      frontId,
+      event,
+    };
+
+    const federationBroadcaster = this
+      .federationService as unknown as FederationBroadcaster;
+    await federationBroadcaster.broadcastMessageToFederations(
+      message,
+      targetFederations,
+    );
+  }
 
   async createMember(system: System, dto: CreateMemberDto): Promise<Member> {
     return this.prisma.member.create({
@@ -272,6 +353,13 @@ export class MembersService {
       }),
     );
 
+    await this.notifyFederatedFrontUpdate(
+      system,
+      memberId,
+      frontSession.id,
+      'FRONT_SESSION_STARTED',
+    );
+
     return frontSession;
   }
 
@@ -312,6 +400,13 @@ export class MembersService {
           memberId: session.memberId,
         },
       }),
+    );
+
+    await this.notifyFederatedFrontUpdate(
+      system,
+      session.memberId,
+      sessionId,
+      'FRONT_SESSION_ENDED',
     );
 
     return sessionMocked;

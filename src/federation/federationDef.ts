@@ -17,6 +17,11 @@ enum FederationMessageType {
   GET_OUTBOX = 'GET_OUTBOX',
 }
 
+enum FrontUpdateEvent {
+  FRONT_SESSION_STARTED = 'FRONT_SESSION_STARTED',
+  FRONT_SESSION_ENDED = 'FRONT_SESSION_ENDED',
+}
+
 type FederationMessage = {
   type: FederationMessageType;
   timestamp: number;
@@ -40,20 +45,26 @@ type ErrorMessage = FederationMessage & {
 
 type FriendRequestMessage = FederationMessage & {
   type: FederationMessageType.FRIEND_REQUEST;
+  // ID of the sender user on the source federation.
+  distantId?: string;
   senderUsername: string;
   recipientUsername: string;
 };
 
 type FriendAcceptMessage = FederationMessage & {
   type: FederationMessageType.FRIEND_ACCEPT;
-  senderId: string;
-  recipientId: string;
+  // ID of the sender user on the source federation.
+  distantId: string;
+  senderUsername: string;
+  recipientUsername: string;
 };
 
 type FriendRejectMessage = FederationMessage & {
   type: FederationMessageType.FRIEND_REJECT;
-  senderId: string;
-  recipientId: string;
+  // ID of the sender user on the source federation.
+  distantId: string;
+  senderUsername: string;
+  recipientUsername: string;
 };
 
 type UserUpdateMessage = FederationMessage & {
@@ -78,6 +89,9 @@ type SystemUpdateMessage = FederationMessage & {
 
 type FrontUpdateMessage = FederationMessage & {
   type: FederationMessageType.FRONT_UPDATE;
+  event: FrontUpdateEvent;
+  systemId: string;
+  memberId: string;
   frontId: string;
   note?: string;
 };
@@ -105,4 +119,4 @@ export type {
   AnyFederationMessage,
 };
 
-export { FederationMessageType };
+export { FederationMessageType, FrontUpdateEvent };

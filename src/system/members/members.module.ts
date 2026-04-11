@@ -6,6 +6,7 @@ import { PrismaModule } from 'src/prisma/prisma.module';
 import { AuthModule } from 'src/auth/auth.module';
 import { RedisModule } from 'src/redis/redis.module';
 import { StorageModule } from 'src/storage/storage.module';
+import { FederationModule } from 'src/federation/federation.module';
 
 @Module({
   imports: [
@@ -14,6 +15,7 @@ import { StorageModule } from 'src/storage/storage.module';
     AuthModule,
     RedisModule,
     StorageModule,
+    forwardRef(() => FederationModule),
   ],
   controllers: [MembersController],
   providers: [MembersService],
