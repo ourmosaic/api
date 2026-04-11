@@ -8,7 +8,7 @@ import { AuthModule } from 'src/auth/auth.module';
 
 @Module({
   imports: [
-    MembersModule,
+    forwardRef(() => MembersModule),
     forwardRef(() => SystemModule),
     PrismaModule,
     AuthModule,
