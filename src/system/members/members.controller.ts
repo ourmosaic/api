@@ -14,7 +14,7 @@ import {
   Version,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { MembersService } from './members.service';
+import { MembersService, MemberWithGroups } from './members.service';
 import { AuthGuard } from 'src/auth/auth.guard';
 import { SystemInterceptor } from '../system.interceptor';
 import { System as Sys } from 'src/decorators/system.decorator';
@@ -60,7 +60,7 @@ export class MembersController {
   async getMembers(
     @Sys() system: System,
     @Query('withCustomFields') withCustomFields: boolean = false,
-  ): Promise<Member[]> {
+  ): Promise<MemberWithGroups[]> {
     return this.membersService.getMembersFor(system, withCustomFields);
   }
 
@@ -346,7 +346,7 @@ export class MembersController {
     @Sys() system: System,
     @Param('id') memberId: string,
     @Query('withCustomFields') withCustomFields: boolean = false,
-  ): Promise<Member> {
+  ): Promise<MemberWithGroups> {
     return this.membersService.getMemberById(
       memberId,
       system,

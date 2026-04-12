@@ -13,6 +13,7 @@ import {
   type Member,
   type System,
   type FrontSession,
+  type MemberOnGroups,
 } from '@prisma/client';
 import { CreateMemberDto } from './dto/createMember.dto';
 import { UpdateMemberDto } from './dto/updateMember.dto';
@@ -23,6 +24,10 @@ import { RedisService } from 'src/redis/redis.service';
 import { REDIS_EVENTS } from 'src/utils/constants';
 import { FederationService } from 'src/federation/federation.service';
 import { FederationMessageType } from 'src/federation/federationDef';
+
+export type MemberWithGroups = Member & {
+  groups: MemberOnGroups[];
+};
 
 type FrontUpdateEventName = 'FRONT_SESSION_STARTED' | 'FRONT_SESSION_ENDED';
 type FederationFrontUpdateBroadcastPayload = {
@@ -190,60 +195,70 @@ export class MembersService {
   async getMembersFor(
     system: System,
     includeCustomFields: boolean = false,
-  ): Promise<Member[]> {
-    return await this.prisma.member.findMany({
+  ): Promise<MemberWithGroups[]> {
+    return (await this.prisma.member.findMany({
       where: {
         systemId: system.id,
       },
       orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
-      include: includeCustomFields
-        ? {
-            customFieldValues: {
-              select: {
-                value: true,
-                customFieldId: true,
-                customField: {
-                  select: {
-                    name: true,
-                    type: true,
-                    privacy: true,
-                  },
+      include: {
+        groups: {
+          select: {
+            groupId: true,
+          },
+        },
+        ...(includeCustomFields && {
+          customFieldValues: {
+            select: {
+              value: true,
+              customFieldId: true,
+              customField: {
+                select: {
+                  name: true,
+                  type: true,
+                  privacy: true,
                 },
               },
             },
-          }
-        : undefined,
-    });
+          },
+        }),
+      },
+    })) as unknown as MemberWithGroups[];
   }
 
   async getMemberById(
     id: string,
     system: System,
     includeCustomFields: boolean = false,
-  ): Promise<Member> {
-    const member = await this.prisma.member.findUnique({
+  ): Promise<MemberWithGroups> {
+    const member = (await this.prisma.member.findUnique({
       where: {
         id,
         systemId: system.id,
       },
-      include: includeCustomFields
-        ? {
-            customFieldValues: {
-              select: {
-                value: true,
-                customFieldId: true,
-                customField: {
-                  select: {
-                    name: true,
-                    type: true,
-                    privacy: true,
-                  },
+      include: {
+        groups: {
+          select: {
+            groupId: true,
+          },
+        },
+        ...(includeCustomFields && {
+          customFieldValues: {
+            select: {
+              value: true,
+              customFieldId: true,
+              customField: {
+                select: {
+                  name: true,
+                  type: true,
+                  privacy: true,
                 },
               },
             },
-          }
-        : undefined,
-    });
+          },
+        }),
+      },
+    })) as unknown as MemberWithGroups | null;
 
     if (!member) {
       throw new NotFoundException(errorCodes.MEMBER_NOT_FOUND_IN_SYSTEM);
