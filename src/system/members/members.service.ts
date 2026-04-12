@@ -590,4 +590,18 @@ export class MembersService {
     });
     return await this.getMemberById(memberId, system, true);
   }
+
+  async getActiveFrontSessionsForSystem(
+    system: System,
+  ): Promise<FrontSession[]> {
+    return this.prisma.frontSession.findMany({
+      where: {
+        systemId: system.id,
+        endTime: null,
+      },
+      orderBy: {
+        startTime: 'desc',
+      },
+    });
+  }
 }

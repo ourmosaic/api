@@ -217,6 +217,21 @@ export class MembersController {
     );
   }
 
+  @Get('front-sessions/active')
+  @Version('1')
+  @UseGuards(AuthGuard)
+  @UseInterceptors(SystemInterceptor)
+  @ApiOkResponse({
+    description: 'Active front sessions retrieved successfully',
+    type: [FrontSessionEntity],
+  })
+  @ApiForbiddenResponse({ description: 'Forbidden.' })
+  async getActiveFrontSessionsForSystem(
+    @Sys() system: System,
+  ): Promise<FrontSession[]> {
+    return this.membersService.getActiveFrontSessionsForSystem(system);
+  }
+
   @Put(':id/groups')
   @Version('1')
   @UseGuards(AuthGuard)
@@ -317,7 +332,6 @@ export class MembersController {
       throw new BadRequestException(errorCodes.GIFS_NOT_SUPPORTED);
     }
   }
-
 
   @Get(':id')
   @Version('1')
