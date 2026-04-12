@@ -97,27 +97,6 @@ export class MembersController {
     return this.membersService.updateMember(memberId, system, dto);
   }
 
-  @Get(':id')
-  @Version('1')
-  @UseGuards(AuthGuard)
-  @UseInterceptors(SystemInterceptor)
-  @ApiOkResponse({
-    description: 'Member retrieved successfully',
-    type: MemberEntity,
-  })
-  @ApiForbiddenResponse({ description: 'Forbidden.' })
-  async getMemberById(
-    @Sys() system: System,
-    @Param('id') memberId: string,
-    @Query('withCustomFields') withCustomFields: boolean = false,
-  ): Promise<Member> {
-    return this.membersService.getMemberById(
-      memberId,
-      system,
-      withCustomFields,
-    );
-  }
-
   @Patch(':id/fields/:fieldId')
   @Version('1')
   @UseGuards(AuthGuard)
@@ -337,5 +316,27 @@ export class MembersController {
       console.error('Error uploading avatar:', err);
       throw new BadRequestException(errorCodes.GIFS_NOT_SUPPORTED);
     }
+  }
+
+
+  @Get(':id')
+  @Version('1')
+  @UseGuards(AuthGuard)
+  @UseInterceptors(SystemInterceptor)
+  @ApiOkResponse({
+    description: 'Member retrieved successfully',
+    type: MemberEntity,
+  })
+  @ApiForbiddenResponse({ description: 'Forbidden.' })
+  async getMemberById(
+    @Sys() system: System,
+    @Param('id') memberId: string,
+    @Query('withCustomFields') withCustomFields: boolean = false,
+  ): Promise<Member> {
+    return this.membersService.getMemberById(
+      memberId,
+      system,
+      withCustomFields,
+    );
   }
 }
