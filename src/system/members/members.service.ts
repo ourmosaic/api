@@ -188,6 +188,7 @@ export class MembersService {
         pronouns: dto.pronouns,
         role: dto.role,
         privacy: dto.privacy,
+        color: dto.color,
       },
     });
   }

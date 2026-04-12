@@ -37,6 +37,7 @@ type SimplyPluralMember = {
   name: string;
   desc?: string;
   pronouns?: string;
+  color?: string;
   avatarUuid?: string;
   privacyBucketId?: string;
   info?: Record<string, unknown>;
@@ -274,6 +275,7 @@ export class ImportService {
       name: string;
       description: string | undefined;
       pronouns: string | undefined;
+      color: string | undefined;
       privacy: PrivacyLevel;
       avatarUrl: string | undefined;
       systemId: string;
@@ -331,6 +333,7 @@ export class ImportService {
         name: member.name,
         description: member.desc,
         pronouns: member.pronouns,
+        color: member.color,
         privacy:
           member.privacyBucketId && privacyBucketMap[member.privacyBucketId]
             ? privacyBucketMap[member.privacyBucketId]

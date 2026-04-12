@@ -96,6 +96,7 @@ model Member {
   role        String?
   description String?
   domain      String?
+  color       String?
   distantId   String? // ID distant pour les membres fédérés
   inDormancy  Boolean      @default(false)
   privacy     PrivacyLevel @default(PRIVATE)
