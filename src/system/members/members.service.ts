@@ -393,6 +393,12 @@ export class MembersService {
       throw new NotFoundException(errorCodes.FRONT_SESSION_NOT_FOUND_IN_SYSTEM);
     }
 
+    if (session.endTime) {
+      throw new BadRequestException(
+        errorCodes.FRONT_SESSION_NOT_FOUND_IN_SYSTEM,
+      );
+    }
+
     await this.prisma.frontSession.update({
       where: {
         id: sessionId,
