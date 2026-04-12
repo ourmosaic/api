@@ -103,14 +103,12 @@ export class SystemController {
   async updateAvatar(
     @Sys() system: System,
     @UploadedFile(
-      new ParseFilePipeBuilder()
-        .addFileTypeValidator({ fileType: /(jpg|jpeg|png|webp)$/i })
-        .build({
-          fileIsRequired: true,
-          errorHttpStatusCode: HttpStatus.BAD_REQUEST,
-          exceptionFactory: () =>
-            new BadRequestException(errorCodes.GIFS_NOT_SUPPORTED),
-        }),
+      new ParseFilePipeBuilder().build({
+        fileIsRequired: true,
+        errorHttpStatusCode: HttpStatus.BAD_REQUEST,
+        exceptionFactory: () =>
+          new BadRequestException(errorCodes.AVATAR_FILE_REQUIRED),
+      }),
     )
     file: Express.Multer.File,
   ): Promise<System> {

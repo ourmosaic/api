@@ -52,6 +52,9 @@ export default {
     [errorCodes.IMPORT_DATA_INVALID_USER]:
       "Données d'importation invalides : l'utilisateur doit être un système",
     [errorCodes.GIFS_NOT_SUPPORTED]: 'Les GIFs ne sont pas supportés',
+    [errorCodes.AVATAR_FILE_REQUIRED]: "Le fichier d'avatar est requis",
+    [errorCodes.AVATAR_FORMAT_UNSUPPORTED]:
+      "Le format de l'avatar n'est pas supporté (jpg, jpeg, png, webp)",
     [errorCodes.FRIENDSHIP_RECIPIENT_NOT_FOUND]:
       "Destinataire de l'amitié non trouvé",
     [errorCodes.FRIENDSHIP_ALREADY_EXISTS_OR_PENDING]:

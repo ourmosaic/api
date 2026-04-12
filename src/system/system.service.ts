@@ -181,7 +181,7 @@ export class SystemService {
   ): Promise<System> {
     try {
       if (!file?.buffer?.length) {
-        throw new BadRequestException(errorCodes.GIFS_NOT_SUPPORTED);
+        throw new BadRequestException(errorCodes.AVATAR_FILE_REQUIRED);
       }
 
       const minioUrl = this.getMinioUrl();
@@ -190,7 +190,7 @@ export class SystemService {
         !metadata.format ||
         !['jpeg', 'jpg', 'png', 'webp'].includes(metadata.format)
       ) {
-        throw new BadRequestException(errorCodes.GIFS_NOT_SUPPORTED);
+        throw new BadRequestException(errorCodes.AVATAR_FORMAT_UNSUPPORTED);
       }
       const procImage = await sharp(file.buffer)
         .resize({ width: 512, height: 512, fit: sharp.fit.cover })
@@ -233,7 +233,7 @@ export class SystemService {
         throw err;
       }
       console.error('Error uploading system avatar:', err);
-      throw new BadRequestException(errorCodes.GIFS_NOT_SUPPORTED);
+      throw new BadRequestException(errorCodes.AVATAR_FORMAT_UNSUPPORTED);
     }
   }
 
