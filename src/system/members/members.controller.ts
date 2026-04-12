@@ -27,7 +27,7 @@ import errorCodes from 'src/utils/errorCodes';
 import { StorageService } from 'src/storage/storage.service';
 import sharp from 'sharp';
 import { UploadedFile } from '@nestjs/common';
-import { ApiForbiddenResponse, ApiOkResponse } from '@nestjs/swagger';
+import { ApiForbiddenResponse, ApiOkResponse, ApiQuery } from '@nestjs/swagger';
 import { Member as MemberEntity } from 'src/@generated/prisma-nestjs-dto/member.entity';
 import { FrontSession as FrontSessionEntity } from 'src/@generated/prisma-nestjs-dto/frontSession.entity';
 import { buildMinioUrl, MINIO_BUCKET_NAME } from 'src/utils/constants';
@@ -46,6 +46,10 @@ export class MembersController {
       MINIO_PORT: this.configService.get<string>('MINIO_PORT'),
       MINIO_USE_SSL: this.configService.get<string>('MINIO_USE_SSL'),
     });
+  }
+
+  private parseBooleanQuery(value?: string | boolean): boolean {
+    return value === true || value === 'true';
   }
 
   @Get()
@@ -221,6 +225,12 @@ export class MembersController {
   @Version('1')
   @UseGuards(AuthGuard)
   @UseInterceptors(SystemInterceptor)
+  @ApiQuery({
+    name: 'withMemberDetails',
+    required: false,
+    type: Boolean,
+    description: 'Include member details for each active front session',
+  })
   @ApiOkResponse({
     description: 'Active front sessions retrieved successfully',
     type: [FrontSessionEntity],
@@ -228,8 +238,12 @@ export class MembersController {
   @ApiForbiddenResponse({ description: 'Forbidden.' })
   async getActiveFrontSessionsForSystem(
     @Sys() system: System,
+    @Query('withMemberDetails') withMemberDetails?: string | boolean,
   ): Promise<FrontSession[]> {
-    return this.membersService.getActiveFrontSessionsForSystem(system);
+    return this.membersService.getActiveFrontSessionsForSystem(
+      system,
+      this.parseBooleanQuery(withMemberDetails),
+    );
   }
 
   @Put(':id/groups')

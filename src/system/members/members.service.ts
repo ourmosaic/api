@@ -626,12 +626,18 @@ export class MembersService {
 
   async getActiveFrontSessionsForSystem(
     system: System,
+    withMemberDetails: boolean = false,
   ): Promise<FrontSession[]> {
     return this.prisma.frontSession.findMany({
       where: {
         systemId: system.id,
         endTime: null,
       },
+      ...(withMemberDetails && {
+        include: {
+          member: true,
+        },
+      }),
       orderBy: {
         startTime: 'desc',
       },
