@@ -14,6 +14,43 @@ export class GroupsService {
     private systemService: SystemService,
   ) {}
 
+  async getGroupsForSystem(system: System): Promise<Group[]> {
+    return this.prisma.group.findMany({
+      where: { systemId: system.id },
+      orderBy: { createdAt: 'asc' },
+    });
+  }
+
+  async getChildGroupsForGroup(
+    system: System,
+    parentId: string,
+  ): Promise<Group[]> {
+    const parentGroup = await this.prisma.group.findUnique({
+      where: { id: parentId },
+    });
+
+    if (!parentGroup || parentGroup.systemId !== system.id) {
+      throw new Error('Parent group not found in system');
+    }
+
+    return this.prisma.group.findMany({
+      where: { parentId },
+      orderBy: { createdAt: 'asc' },
+    });
+  }
+
+  async getMembersInGroup(system: System, groupId: string) {
+    const group = await this.prisma.group.findUnique({
+      where: { id: groupId },
+    });
+
+    if (!group || group.systemId !== system.id) {
+      throw new Error('Group not found in system');
+    }
+
+    return this.membersService.getMembersByGroupId(system, groupId);
+  }
+
   async createGroup(system: System, dto: CreateGroupDto): Promise<Group> {
     return this.prisma.group.create({
       data: {

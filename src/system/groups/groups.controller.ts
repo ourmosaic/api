@@ -2,6 +2,8 @@ import {
   Body,
   Controller,
   Delete,
+  Get,
+  Param,
   Post,
   UseGuards,
   UseInterceptors,
@@ -17,6 +19,30 @@ import { CreateGroupDto } from './dto/createGroup.dto';
 @Controller('system/@me/groups')
 export class GroupsController {
   constructor(private groupsService: GroupsService) {}
+
+  @Get()
+  @Version('1')
+  @UseGuards(AuthGuard)
+  @UseInterceptors(SystemInterceptor)
+  async getGroups(@Sys() system: System) {
+    return this.groupsService.getGroupsForSystem(system);
+  }
+
+  @Get(':id/children')
+  @Version('1')
+  @UseGuards(AuthGuard)
+  @UseInterceptors(SystemInterceptor)
+  async getChildGroups(@Sys() system: System, @Param('id') groupId: string) {
+    return this.groupsService.getChildGroupsForGroup(system, groupId);
+  }
+
+  @Get(':id/members')
+  @Version('1')
+  @UseGuards(AuthGuard)
+  @UseInterceptors(SystemInterceptor)
+  async getMembersInGroup(@Sys() system: System, @Param('id') groupId: string) {
+    return this.groupsService.getMembersInGroup(system, groupId);
+  }
 
   @Post()
   @Version('1')

@@ -103,6 +103,23 @@ export class MembersService {
     );
   }
 
+  async getMembersByGroupId(
+    system: System,
+    groupId: string,
+  ): Promise<Member[]> {
+    return this.prisma.member.findMany({
+      where: {
+        systemId: system.id,
+        groups: {
+          some: {
+            groupId,
+          },
+        },
+      },
+      orderBy: { createdAt: 'asc' },
+    });
+  }
+
   async createMember(system: System, dto: CreateMemberDto): Promise<Member> {
     return this.prisma.member.create({
       data: {
