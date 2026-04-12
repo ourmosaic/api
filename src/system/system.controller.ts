@@ -1,9 +1,12 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Delete,
   Get,
+  HttpStatus,
   Param,
+  ParseFilePipeBuilder,
   Patch,
   Post,
   Put,
@@ -22,6 +25,7 @@ import { System as Sys } from 'src/decorators/system.decorator';
 import { UpdateCustomFieldDefinitionDto } from './dto/updateCustomFieldDefinition.dto';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { UpdateSystemDto } from 'src/@generated/prisma-nestjs-dto/update-system.dto';
+import errorCodes from 'src/utils/errorCodes';
 
 @Controller('system')
 export class SystemController {
@@ -98,7 +102,17 @@ export class SystemController {
   @UseInterceptors(SystemInterceptor, FileInterceptor('file'))
   async updateAvatar(
     @Sys() system: System,
-    @UploadedFile() file: Express.Multer.File,
+    @UploadedFile(
+      new ParseFilePipeBuilder()
+        .addFileTypeValidator({ fileType: /(jpg|jpeg|png|webp)$/i })
+        .build({
+          fileIsRequired: true,
+          errorHttpStatusCode: HttpStatus.BAD_REQUEST,
+          exceptionFactory: () =>
+            new BadRequestException(errorCodes.GIFS_NOT_SUPPORTED),
+        }),
+    )
+    file: Express.Multer.File,
   ): Promise<System> {
     return this.systemService.updateSystemAvatar(system, file);
   }

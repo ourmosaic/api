@@ -180,9 +180,16 @@ export class SystemService {
     file: Express.Multer.File,
   ): Promise<System> {
     try {
+      if (!file?.buffer?.length) {
+        throw new BadRequestException(errorCodes.GIFS_NOT_SUPPORTED);
+      }
+
       const minioUrl = this.getMinioUrl();
       const metadata = await sharp(file.buffer).metadata();
-      if (!['jpeg', 'jpg', 'png', 'webp'].includes(metadata.format)) {
+      if (
+        !metadata.format ||
+        !['jpeg', 'jpg', 'png', 'webp'].includes(metadata.format)
+      ) {
         throw new BadRequestException(errorCodes.GIFS_NOT_SUPPORTED);
       }
       const procImage = await sharp(file.buffer)
@@ -195,7 +202,7 @@ export class SystemService {
         MINIO_BUCKET_NAME,
         fileName,
         procImage,
-        metadata.size,
+        procImage.length,
         'image/webp',
       );
 
@@ -222,6 +229,9 @@ export class SystemService {
         },
       });
     } catch (err) {
+      if (err instanceof BadRequestException) {
+        throw err;
+      }
       console.error('Error uploading system avatar:', err);
       throw new BadRequestException(errorCodes.GIFS_NOT_SUPPORTED);
     }
