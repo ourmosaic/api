@@ -336,6 +336,21 @@ export class MembersService {
       throw new NotFoundException(errorCodes.MEMBER_NOT_FOUND_IN_SYSTEM);
     }
 
+    // member must NOT already have an active session
+    const activeSession = await this.prisma.frontSession.findFirst({
+      where: {
+        memberId,
+        systemId: system.id,
+        endTime: null,
+      },
+    });
+
+    if (activeSession) {
+      throw new BadRequestException(
+        errorCodes.MEMBER_ALREADY_HAS_ACTIVE_SESSION,
+      );
+    }
+
     const frontSession = await this.prisma.frontSession.create({
       data: {
         memberId,

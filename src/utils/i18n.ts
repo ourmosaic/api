@@ -70,5 +70,7 @@ export default {
     [errorCodes.INVALID_FRIEND_REQUEST]:
       "Requête d'amitié invalide (doit inclure soit recipientId, soit username et federationUrl)",
     [errorCodes.CANNOT_FRIEND_SELF]: 'Vous ne pouvez pas vous ajouter en ami',
+    [errorCodes.MEMBER_ALREADY_HAS_ACTIVE_SESSION]:
+      'Le membre a déjà une session active',
   },
 };
