@@ -349,22 +349,23 @@ export class ImportService {
           });
           const buffer = Buffer.from(new Uint8Array(response.data));
           const metadata = await sharp(buffer).metadata();
-          if (!['jpeg', 'jpg', 'png', 'webp'].includes(metadata.format)) {
-            continue;
+          if (['jpeg', 'jpg', 'png', 'webp'].includes(metadata.format)) {
+            const optimizedBuffer = await sharp(buffer)
+              .resize(512, 512, { fit: 'inside' })
+              .toFormat('webp', { quality: 80 })
+              .toBuffer();
+            const fileName = `avatars/systems/${system.id}/members/${newMemberId}/${Date.now()}.webp`;
+            await this.storageService.uploadFile(
+              MINIO_BUCKET_NAME,
+              fileName,
+              optimizedBuffer,
+              metadata.size,
+              'image/webp',
+            );
+            avatarUrl = `${minioUrl}/${MINIO_BUCKET_NAME}/${fileName}`;
+          } else {
+            avatarUrl = undefined;
           }
-          const optimizedBuffer = await sharp(buffer)
-            .resize(512, 512, { fit: 'inside' })
-            .toFormat('webp', { quality: 80 })
-            .toBuffer();
-          const fileName = `avatars/systems/${system.id}/members/${newMemberId}/${Date.now()}.webp`;
-          await this.storageService.uploadFile(
-            MINIO_BUCKET_NAME,
-            fileName,
-            optimizedBuffer,
-            metadata.size,
-            'image/webp',
-          );
-          avatarUrl = `${minioUrl}/${MINIO_BUCKET_NAME}/${fileName}`;
         } catch (error) {
           console.error(
             `Failed to upload avatar for member ${member.name}:`,
@@ -419,9 +420,19 @@ export class ImportService {
             const existingIsCanonicalId = existing
               ? sourceFieldIds.has(existing.sourceFieldId)
               : false;
+            const currentIsEmpty = normalizedValue.trim().length === 0;
+            const existingIsEmpty = existing
+              ? existing.value.trim().length === 0
+              : false;
 
-            // If aliases and canonical IDs both exist for the same field, keep canonical.
-            if (!existing || (currentIsCanonicalId && !existingIsCanonicalId)) {
+            // Prefer non-empty values; canonical IDs only win as tie-breakers.
+            if (
+              !existing ||
+              (existingIsEmpty && !currentIsEmpty) ||
+              (currentIsCanonicalId &&
+                !existingIsCanonicalId &&
+                currentIsEmpty === existingIsEmpty)
+            ) {
               valuesByCustomFieldId.set(mappedFieldId, {
                 value: normalizedValue,
                 sourceFieldId: fieldId,
