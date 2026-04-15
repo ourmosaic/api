@@ -201,7 +201,7 @@ export class MembersService {
       where: {
         systemId: system.id,
       },
-      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+      orderBy: [{ name: 'asc' }, { id: 'asc' }],
       include: {
         groups: {
           select: {
