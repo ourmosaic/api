@@ -19,7 +19,15 @@ type SimplyPluralUser = {
   desc?: string;
   avatarUrl?: string;
   color?: string;
-  fields: Record<string, { name: string }>;
+  fields: Record<
+    string,
+    {
+      name: string;
+      order?: number;
+      type?: number;
+      private?: boolean;
+    }
+  >;
 };
 
 type SimplyPluralCustomField = {
@@ -195,7 +203,10 @@ export class ImportService {
     });
 
     const customFieldIdMap: Record<string, string> = {};
-    const fieldIdToNameMap: Record<string, string> = {};
+    const sourceFieldIds = new Set<string>(
+      payload.customFields.map((field) => field._id),
+    );
+    const sourceFieldIdToAliasesMap: Record<string, string[]> = {};
     const customFieldsToCreate: Array<{
       id: string;
       name: string;
@@ -205,9 +216,14 @@ export class ImportService {
       privacy: PrivacyLevel;
     }> = [];
 
-    for (const fieldName of Object.keys(spUser.fields)) {
-      const fieldId = spUser.fields[fieldName].name;
-      fieldIdToNameMap[fieldId] = fieldName;
+    for (const fieldAlias of Object.keys(spUser.fields)) {
+      const sourceFieldId = spUser.fields[fieldAlias]?.name;
+      if (!sourceFieldId) continue;
+
+      if (!sourceFieldIdToAliasesMap[sourceFieldId]) {
+        sourceFieldIdToAliasesMap[sourceFieldId] = [];
+      }
+      sourceFieldIdToAliasesMap[sourceFieldId].push(fieldAlias);
     }
 
     for (const field of payload.customFields) {
@@ -251,7 +267,37 @@ export class ImportService {
         systemId: system.id,
         privacy: PrivacyLevel.PRIVATE,
       });
-      customFieldIdMap[fieldIdToNameMap[field._id]] = newFieldId;
+      customFieldIdMap[field._id] = newFieldId;
+      for (const fieldAlias of sourceFieldIdToAliasesMap[field._id] ?? []) {
+        customFieldIdMap[fieldAlias] = newFieldId;
+      }
+    }
+
+    // Some exports only list field descriptors in `users[0].fields`.
+    let fallbackFieldOrder = customFieldsToCreate.length;
+    for (const [fieldAlias, fieldConfig] of Object.entries(spUser.fields)) {
+      const sourceFieldId = fieldConfig?.name;
+      if (!sourceFieldId) continue;
+      if (customFieldIdMap[sourceFieldId] || customFieldIdMap[fieldAlias])
+        continue;
+
+      const newFieldId = randomUUID();
+      const order =
+        typeof fieldConfig.order === 'number'
+          ? Math.round(fieldConfig.order)
+          : fallbackFieldOrder++;
+
+      customFieldsToCreate.push({
+        id: newFieldId,
+        name: fieldAlias,
+        type: FieldType.STRING,
+        order,
+        systemId: system.id,
+        privacy: PrivacyLevel.PRIVATE,
+      });
+
+      customFieldIdMap[sourceFieldId] = newFieldId;
+      customFieldIdMap[fieldAlias] = newFieldId;
     }
 
     for (let i = 0; i < customFieldsToCreate.length; i += BATCH_SIZE) {
@@ -343,6 +389,11 @@ export class ImportService {
       });
 
       if (member.info) {
+        const valuesByCustomFieldId = new Map<
+          string,
+          { value: string; sourceFieldId: string }
+        >();
+
         for (const fieldId in member.info) {
           const value = member.info[fieldId];
           const mappedFieldId = customFieldIdMap[fieldId];
@@ -362,13 +413,33 @@ export class ImportService {
             } else {
               continue;
             }
-            customFieldValuesToCreate.push({
-              id: randomUUID(),
-              value: normalizedValue,
-              memberId: newMemberId,
-              customFieldId: mappedFieldId,
-            });
+
+            const existing = valuesByCustomFieldId.get(mappedFieldId);
+            const currentIsCanonicalId = sourceFieldIds.has(fieldId);
+            const existingIsCanonicalId = existing
+              ? sourceFieldIds.has(existing.sourceFieldId)
+              : false;
+
+            // If aliases and canonical IDs both exist for the same field, keep canonical.
+            if (!existing || (currentIsCanonicalId && !existingIsCanonicalId)) {
+              valuesByCustomFieldId.set(mappedFieldId, {
+                value: normalizedValue,
+                sourceFieldId: fieldId,
+              });
+            }
           }
+        }
+
+        for (const [
+          customFieldId,
+          { value },
+        ] of valuesByCustomFieldId.entries()) {
+          customFieldValuesToCreate.push({
+            id: randomUUID(),
+            value,
+            memberId: newMemberId,
+            customFieldId,
+          });
         }
       }
     }
