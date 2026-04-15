@@ -47,6 +47,7 @@ export class UsersController {
 
   @Get(':id')
   @Version('1')
+  @UseGuards(AuthGuard)
   async getUserById(@Param('id', ParseUUIDPipe) id: string) {
     return this.usersService.getUserById(id);
   }
