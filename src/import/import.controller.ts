@@ -20,4 +20,14 @@ export class ImportController {
   async importFromSimplyPlural(@Body() data: any, @CurrentUser() user: User) {
     return this.importService.importFromSimplyPlural(user, data);
   }
+
+  @Post('simplyplural/api')
+  @UseGuards(AuthGuard)
+  @Version('1')
+  async importFromSimplyPluralApi(
+    @Body() data: { apiKey: string },
+    @CurrentUser() user: User,
+  ) {
+    return this.importService.importFromSimplyPluralApi(user, data);
+  }
 }

@@ -108,6 +108,35 @@ type SimplyPluralImportPayload = {
   boardMessages: SimplyPluralBoardMessage[];
 };
 
+type SimplyPluralApiChatMessage = {
+  exists: boolean;
+  id: string;
+  content: {
+    message: string;
+    channel: string;
+    writer: string;
+    writtenAt: number;
+    uid: string;
+    lastOperationTime: number;
+  };
+};
+
+type SimplyPluralApiBoardMessage = {
+  exists: boolean;
+  id: string;
+  content: {
+    title: string;
+    message: string;
+    writtenBy: string;
+    writtenFor: string;
+    read: boolean;
+    writtenAt: number;
+    supportMarkdown: boolean;
+    uid: string;
+    lastOperationTime: number;
+  };
+};
+
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   !!value && typeof value === 'object';
 
@@ -687,5 +716,373 @@ export class ImportService {
     }
 
     return this.systemService.getSystemById(system.id);
+  }
+
+  async importFromSimplyPluralApi(user: User, data: { apiKey: string }) {
+    const { apiKey } = data;
+    if (!apiKey) {
+      throw new BadRequestException(errorCodes.IMPORT_DATA_MISSING_API_KEY);
+    }
+
+    const SIMPLY_PLURAL_BASE_URL = 'https://api.apparyllis.com/v1';
+    const sp_axios = axios.create({
+      baseURL: SIMPLY_PLURAL_BASE_URL,
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+      },
+    });
+
+    const me = await sp_axios.get<{
+      id: string;
+      exists: boolean;
+      content: {
+        uid: string;
+        isAsystem: boolean;
+        username: string;
+        avatarUrl: string;
+        color: string;
+        desc: string;
+        frame: any;
+        supportDescMarkdown: boolean;
+        fields: {
+          [fieldAlias: string]: {
+            name: string;
+            order: number;
+            private: boolean;
+            type: number;
+            preventTrusted: boolean;
+          };
+        };
+        avatarUuid: string;
+      };
+    }>('/me');
+
+    if (!me.data.exists) {
+      throw new BadRequestException(errorCodes.IMPORT_DATA_INVALID_API_KEY);
+    }
+
+    if (!me.data.content.isAsystem) {
+      throw new BadRequestException(errorCodes.IMPORT_DATA_INVALID_USER);
+    }
+
+    const spUser = me.data.content;
+
+    const system = await this.systemService.createSystem(
+      {
+        customName: spUser.username || 'Simply Plural Import',
+        description: spUser.desc,
+      },
+      user,
+    );
+
+    await this.prisma.system.update({
+      where: { id: system.id },
+      data: {
+        avatarUrl: spUser.avatarUrl,
+        color: spUser.color,
+      },
+    });
+
+    const customFieldsResponse = await sp_axios.get<
+      {
+        exists: boolean;
+        id: string;
+        content: {
+          name: string;
+          order: string;
+          type: number;
+          supportMarkdown: boolean;
+          uid: string;
+          lastOperationTime: number;
+          buckets: unknown[];
+        };
+      }[]
+    >(`/customFields/${spUser.uid}`);
+    const customFields = customFieldsResponse.data;
+    if (!Array.isArray(customFields)) {
+      throw new BadRequestException(
+        errorCodes.IMPORT_DATA_INVALID_CUSTOM_FIELDS,
+      );
+    }
+
+    const membersResponse = await sp_axios.get<
+      {
+        exists: boolean;
+        id: string;
+        content: {
+          name: string;
+          desc: string;
+          pronouns: string;
+          color: string;
+          avatarUrl: string;
+          private: boolean;
+          preventTrusted: boolean;
+          preventsFrontNotifs: boolean;
+          supportDescMarkdown: boolean;
+          archived: boolean;
+          receiveMessageBoardNotifs: boolean;
+          archivedReason: string;
+          uid: string;
+          lastOperationTime: number;
+          buckets: string[];
+          avatarUuid: string;
+          frame: any;
+          info: Record<string, unknown>;
+        };
+      }[]
+    >(`/members/${spUser.uid}`);
+
+    const members = membersResponse.data;
+    if (!Array.isArray(members)) {
+      throw new BadRequestException(errorCodes.IMPORT_DATA_INVALID_MEMBERS);
+    }
+
+    const groupsResponse = await sp_axios.get<
+      {
+        exists: boolean;
+        id: string;
+        content: {
+          parent: string | null;
+          name: string;
+          color: string;
+          desc: string;
+          emoji: string;
+          supportDescMarkdown: boolean;
+          members: string[];
+          uid: string;
+          lastOperationTime: number;
+          buckets: unknown[];
+        };
+      }[]
+    >(`/groups/${spUser.uid}`);
+    const groups = groupsResponse.data;
+    if (!Array.isArray(groups)) {
+      throw new BadRequestException(errorCodes.IMPORT_DATA_INVALID_GROUPS);
+    }
+
+    const privacyBucketsResponse = await sp_axios.get<
+      {
+        exists: boolean;
+        id: string;
+        content: {
+          uid: string;
+          name: string;
+          icon: string;
+          rank: string;
+          desc: string;
+          color: string;
+        };
+      }[]
+    >('/privacyBuckets');
+    const privacyBuckets = privacyBucketsResponse.data;
+    if (!Array.isArray(privacyBuckets)) {
+      throw new BadRequestException(
+        errorCodes.IMPORT_DATA_INVALID_PRIVACY_BUCKETS,
+      );
+    }
+
+    const frontSessionsResponse = await sp_axios.get<
+      {
+        exists: boolean;
+        id: string;
+        content: {
+          custom: boolean;
+          startTime: number;
+          member: string;
+          live: boolean;
+          customStatus: string;
+          uid: string;
+          lastOperationTime: number;
+          endTime: number | null;
+        };
+      }[]
+    >(`/frontHistory/${spUser.uid}?startTime=0&endTime=${Date.now()}`);
+    const frontSessions = frontSessionsResponse.data;
+    if (!Array.isArray(frontSessions)) {
+      throw new BadRequestException(
+        errorCodes.IMPORT_DATA_INVALID_FRONT_SESSIONS,
+      );
+    }
+
+    const polls = await sp_axios.get<
+      {
+        exists: boolean;
+        id: string;
+        content: {
+          name: string;
+          desc: string;
+          custom: boolean;
+          endTime: number;
+          uid: string;
+          lastOperationTime: number;
+          allowAbstain?: boolean;
+          allowVeto?: boolean;
+          supportDescMarkdown: boolean;
+          options: Array<{
+            name: string;
+            color: string;
+          }>;
+          votes: Array<{
+            id: string;
+            vote: string;
+            comment: string;
+          }>;
+        };
+      }[]
+    >(`/polls/${spUser.uid}`);
+    if (!Array.isArray(polls.data)) {
+      throw new BadRequestException(errorCodes.IMPORT_DATA_INVALID_POLLS);
+    }
+
+    const chatGroupsResponse = await sp_axios.get<
+      {
+        exists: boolean;
+        id: string;
+        content: {
+          name: string;
+          desc: string;
+          channels: string[];
+          uid: string;
+          lastOperationTime: number;
+        };
+      }[]
+    >(`/chatGroups/${spUser.uid}`);
+    const chatGroups = chatGroupsResponse.data;
+    if (!Array.isArray(chatGroups)) {
+      throw new BadRequestException(errorCodes.IMPORT_DATA_INVALID_CHAT_GROUPS);
+    }
+
+    const chatChannels = await axios.get<
+      {
+        exists: boolean;
+        id: string;
+        content: {
+          name: string;
+          desc: string;
+          group: string | null;
+          uid: string;
+          lastOperationTime: number;
+        };
+      }[]
+    >(`/chatChannels/${spUser.uid}`);
+    if (!Array.isArray(chatChannels.data)) {
+      throw new BadRequestException(
+        errorCodes.IMPORT_DATA_INVALID_CHAT_CHANNELS,
+      );
+    }
+
+    const chatMessages: Record<string, SimplyPluralApiChatMessage[]> = {};
+
+    for (const channel of chatChannels.data) {
+      const messagesResponse = await sp_axios.get<SimplyPluralApiChatMessage[]>(
+        `/chat/messages/${channel.id}?limit=100`,
+      );
+      const messages = messagesResponse.data;
+      if (!Array.isArray(messages)) {
+        throw new BadRequestException(
+          errorCodes.IMPORT_DATA_INVALID_CHAT_MESSAGES,
+        );
+      }
+      chatMessages[channel.id] = messages;
+    }
+
+    const boardMessages: Record<string, SimplyPluralApiBoardMessage[]> = {};
+    for (const member of members) {
+      const messagesResponse = await sp_axios.get<
+        SimplyPluralApiBoardMessage[]
+      >(`/messageBoard/messages/${member.id}`);
+      const messages = messagesResponse.data;
+      if (!Array.isArray(messages)) {
+        throw new BadRequestException(
+          errorCodes.IMPORT_DATA_INVALID_BOARD_MESSAGES,
+        );
+      }
+      boardMessages[member.id] = messages;
+    }
+
+    const simplyPluralData: SimplyPluralImportPayload = {
+      customFields: customFields.map((field) => ({
+        _id: field.id,
+        name: field.content.name,
+        type: field.content.type,
+        order: field.content.order,
+      })),
+      users: [
+        {
+          isAsystem: true,
+          username: spUser.username,
+          desc: spUser.desc,
+          avatarUrl: spUser.avatarUrl,
+          color: spUser.color,
+          fields: spUser.fields,
+        },
+      ],
+      notes: [],
+      members: members.map((member) => ({
+        _id: member.id,
+        uid: member.content.uid,
+        name: member.content.name,
+        desc: member.content.desc,
+        pronouns: member.content.pronouns,
+        color: member.content.color,
+        avatarUuid: member.content.avatarUuid,
+        privacyBucketId:
+          member.content.buckets && member.content.buckets.length > 0
+            ? member.content.buckets[0]
+            : undefined,
+        info: member.content.info,
+      })),
+      privateFront: {},
+      comments: [],
+      chatMessages: Object.values(chatMessages)
+        .flat()
+        .map((message) => ({
+          writer: message.content.writer,
+          channel: message.content.channel,
+          message: message.content.message,
+          writtenAt: message.content.writtenAt,
+        })),
+      groups: groups.map((group) => ({
+        _id: group.id,
+        parent: group.content.parent,
+        name: group.content.name,
+        color: group.content.color,
+        emoji: group.content.emoji,
+        icon: group.content.emoji,
+        members: group.content.members,
+      })),
+      privacyBuckets: privacyBuckets.map((bucket) => ({
+        id: bucket.id,
+        rank: bucket.content.rank,
+      })),
+      frontHistory: frontSessions.map((session) => ({
+        member: session.content.member,
+        startTime: session.content.startTime,
+        endTime: session.content.endTime,
+        customStatus: session.content.customStatus,
+      })),
+      channelCategories: chatGroups.map((group) => ({
+        _id: group.id,
+        name: group.content.name,
+        desc: group.content.desc,
+        channels: group.content.channels,
+      })),
+      channels: chatChannels.data.map((channel) => ({
+        _id: channel.id,
+        name: channel.content.name,
+        desc: channel.content.desc,
+      })),
+      boardMessages: Object.values(boardMessages)
+        .flat()
+        .map((message) => ({
+          writtenBy: message.content.writtenBy,
+          writtenFor: message.content.writtenFor,
+          read: message.content.read,
+          message: message.content.message,
+          writtenAt: message.content.writtenAt,
+        })),
+    };
+
+    return this.importFromSimplyPlural(user, simplyPluralData);
   }
 }

@@ -75,5 +75,29 @@ export default {
     [errorCodes.CANNOT_FRIEND_SELF]: 'Vous ne pouvez pas vous ajouter en ami',
     [errorCodes.MEMBER_ALREADY_HAS_ACTIVE_SESSION]:
       'Le membre a déjà une session active',
+    [errorCodes.IMPORT_DATA_MISSING_API_KEY]:
+      "Donnée d'importation manquante : clé API",
+    [errorCodes.IMPORT_DATA_INVALID_API_KEY]:
+      "Donnée d'importation invalide : clé API invalide",
+    [errorCodes.IMPORT_DATA_INVALID_CUSTOM_FIELDS]:
+      "Donnée d'importation invalide : champs personnalisés invalides",
+    [errorCodes.IMPORT_DATA_INVALID_MEMBERS]:
+      "Donnée d'importation invalide : membres invalides",
+    [errorCodes.IMPORT_DATA_INVALID_GROUPS]:
+      "Donnée d'importation invalide : groupes invalides",
+    [errorCodes.IMPORT_DATA_INVALID_PRIVACY_BUCKETS]:
+      "Donnée d'importation invalide : compartiments de confidentialité invalides",
+    [errorCodes.IMPORT_DATA_INVALID_FRONT_SESSIONS]:
+      "Donnée d'importation invalide : sessions frontales invalides",
+    [errorCodes.IMPORT_DATA_INVALID_POLLS]:
+      "Donnée d'importation invalide : sondages invalides",
+    [errorCodes.IMPORT_DATA_INVALID_CHAT_GROUPS]:
+      "Donnée d'importation invalide : groupes de chat invalides",
+    [errorCodes.IMPORT_DATA_INVALID_CHAT_CHANNELS]:
+      "Donnée d'importation invalide : canaux de chat invalides",
+    [errorCodes.IMPORT_DATA_INVALID_CHAT_MESSAGES]:
+      "Donnée d'importation invalide : messages de chat invalides",
+    [errorCodes.IMPORT_DATA_INVALID_BOARD_MESSAGES]:
+      "Donnée d'importation invalide : messages de tableau invalides",
   },
 };
