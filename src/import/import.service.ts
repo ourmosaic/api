@@ -6,7 +6,7 @@ import { FieldType } from 'src/system/dto/updateCustomFieldDefinition.dto';
 import { SystemService } from 'src/system/system.service';
 import { randomUUID } from 'crypto';
 import errorCodes from 'src/utils/errorCodes';
-import axios from 'axios';
+import axios, { AxiosInstance } from 'axios';
 import sharp from 'sharp';
 import { StorageService } from 'src/storage/storage.service';
 import { buildMinioUrl, MINIO_BUCKET_NAME } from 'src/utils/constants';
@@ -181,6 +181,29 @@ export class ImportService {
     });
   }
 
+  private handleSimplyPluralApiError(error: unknown): never {
+    if (axios.isAxiosError(error)) {
+      const status = error.response?.status;
+      if (status === 401 || status === 403) {
+        throw new BadRequestException(errorCodes.IMPORT_DATA_INVALID_API_KEY);
+      }
+    }
+
+    throw error;
+  }
+
+  private async simplyPluralGet<T>(
+    client: AxiosInstance,
+    path: string,
+  ): Promise<T> {
+    try {
+      const response = await client.get<T>(path);
+      return response.data;
+    } catch (error) {
+      this.handleSimplyPluralApiError(error);
+    }
+  }
+
   async importFromSimplyPlural(user: User, data: unknown) {
     const minioUrl = this.getMinioUrl();
 
@@ -223,10 +246,38 @@ export class ImportService {
       user,
     );
 
+    let avatarUrl: string | undefined = undefined;
+    if (spUser.avatarUrl) {
+      try {
+        const response = await axios.get<ArrayBuffer>(spUser.avatarUrl, {
+          responseType: 'arraybuffer',
+        });
+        const buffer = Buffer.from(new Uint8Array(response.data));
+        const metadata = await sharp(buffer).metadata();
+        if (['jpeg', 'jpg', 'png', 'webp'].includes(metadata.format)) {
+          const optimizedBuffer = await sharp(buffer)
+            .resize(512, 512, { fit: 'inside' })
+            .toFormat('webp', { quality: 80 })
+            .toBuffer();
+          const fileName = `avatars/systems/${system.id}/avatar/${Date.now()}.webp`;
+          await this.storageService.uploadFile(
+            MINIO_BUCKET_NAME,
+            fileName,
+            optimizedBuffer,
+            metadata.size,
+            'image/webp',
+          );
+          avatarUrl = `${minioUrl}/${MINIO_BUCKET_NAME}/${fileName}`;
+        }
+      } catch (error) {
+        console.error('Failed to upload system avatar:', error);
+      }
+    }
+
     await this.prisma.system.update({
       where: { id: system.id },
       data: {
-        avatarUrl: spUser.avatarUrl,
+        avatarUrl: avatarUrl,
         color: spUser.color,
       },
     });
@@ -728,11 +779,11 @@ export class ImportService {
     const sp_axios = axios.create({
       baseURL: SIMPLY_PLURAL_BASE_URL,
       headers: {
-        Authorization: `Bearer ${apiKey}`,
+        Authorization: `${apiKey}`,
       },
     });
 
-    const me = await sp_axios.get<{
+    const me = await this.simplyPluralGet<{
       id: string;
       exists: boolean;
       content: {
@@ -755,35 +806,19 @@ export class ImportService {
         };
         avatarUuid: string;
       };
-    }>('/me');
+    }>(sp_axios, '/me');
 
-    if (!me.data.exists) {
+    if (!me.exists) {
       throw new BadRequestException(errorCodes.IMPORT_DATA_INVALID_API_KEY);
     }
 
-    if (!me.data.content.isAsystem) {
+    if (!me.content.isAsystem) {
       throw new BadRequestException(errorCodes.IMPORT_DATA_INVALID_USER);
     }
 
-    const spUser = me.data.content;
+    const spUser = me.content;
 
-    const system = await this.systemService.createSystem(
-      {
-        customName: spUser.username || 'Simply Plural Import',
-        description: spUser.desc,
-      },
-      user,
-    );
-
-    await this.prisma.system.update({
-      where: { id: system.id },
-      data: {
-        avatarUrl: spUser.avatarUrl,
-        color: spUser.color,
-      },
-    });
-
-    const customFieldsResponse = await sp_axios.get<
+    const customFields = await this.simplyPluralGet<
       {
         exists: boolean;
         id: string;
@@ -797,15 +832,14 @@ export class ImportService {
           buckets: unknown[];
         };
       }[]
-    >(`/customFields/${spUser.uid}`);
-    const customFields = customFieldsResponse.data;
+    >(sp_axios, `/customFields/${spUser.uid}`);
     if (!Array.isArray(customFields)) {
       throw new BadRequestException(
         errorCodes.IMPORT_DATA_INVALID_CUSTOM_FIELDS,
       );
     }
 
-    const membersResponse = await sp_axios.get<
+    const members = await this.simplyPluralGet<
       {
         exists: boolean;
         id: string;
@@ -830,14 +864,12 @@ export class ImportService {
           info: Record<string, unknown>;
         };
       }[]
-    >(`/members/${spUser.uid}`);
-
-    const members = membersResponse.data;
+    >(sp_axios, `/members/${spUser.uid}`);
     if (!Array.isArray(members)) {
       throw new BadRequestException(errorCodes.IMPORT_DATA_INVALID_MEMBERS);
     }
 
-    const groupsResponse = await sp_axios.get<
+    const groups = await this.simplyPluralGet<
       {
         exists: boolean;
         id: string;
@@ -854,13 +886,12 @@ export class ImportService {
           buckets: unknown[];
         };
       }[]
-    >(`/groups/${spUser.uid}`);
-    const groups = groupsResponse.data;
+    >(sp_axios, `/groups/${spUser.uid}`);
     if (!Array.isArray(groups)) {
       throw new BadRequestException(errorCodes.IMPORT_DATA_INVALID_GROUPS);
     }
 
-    const privacyBucketsResponse = await sp_axios.get<
+    const privacyBuckets = await this.simplyPluralGet<
       {
         exists: boolean;
         id: string;
@@ -873,15 +904,14 @@ export class ImportService {
           color: string;
         };
       }[]
-    >('/privacyBuckets');
-    const privacyBuckets = privacyBucketsResponse.data;
+    >(sp_axios, '/privacyBuckets');
     if (!Array.isArray(privacyBuckets)) {
       throw new BadRequestException(
         errorCodes.IMPORT_DATA_INVALID_PRIVACY_BUCKETS,
       );
     }
 
-    const frontSessionsResponse = await sp_axios.get<
+    const frontSessions = await this.simplyPluralGet<
       {
         exists: boolean;
         id: string;
@@ -896,15 +926,17 @@ export class ImportService {
           endTime: number | null;
         };
       }[]
-    >(`/frontHistory/${spUser.uid}?startTime=0&endTime=${Date.now()}`);
-    const frontSessions = frontSessionsResponse.data;
+    >(
+      sp_axios,
+      `/frontHistory/${spUser.uid}?startTime=0&endTime=${Date.now()}`,
+    );
     if (!Array.isArray(frontSessions)) {
       throw new BadRequestException(
         errorCodes.IMPORT_DATA_INVALID_FRONT_SESSIONS,
       );
     }
 
-    const polls = await sp_axios.get<
+    const polls = await this.simplyPluralGet<
       {
         exists: boolean;
         id: string;
@@ -929,12 +961,12 @@ export class ImportService {
           }>;
         };
       }[]
-    >(`/polls/${spUser.uid}`);
-    if (!Array.isArray(polls.data)) {
+    >(sp_axios, `/polls/${spUser.uid}`);
+    if (!Array.isArray(polls)) {
       throw new BadRequestException(errorCodes.IMPORT_DATA_INVALID_POLLS);
     }
 
-    const chatGroupsResponse = await sp_axios.get<
+    const chatGroups = await this.simplyPluralGet<
       {
         exists: boolean;
         id: string;
@@ -946,13 +978,12 @@ export class ImportService {
           lastOperationTime: number;
         };
       }[]
-    >(`/chatGroups/${spUser.uid}`);
-    const chatGroups = chatGroupsResponse.data;
+    >(sp_axios, `/chat/categories`);
     if (!Array.isArray(chatGroups)) {
       throw new BadRequestException(errorCodes.IMPORT_DATA_INVALID_CHAT_GROUPS);
     }
 
-    const chatChannels = await axios.get<
+    const chatChannels = await this.simplyPluralGet<
       {
         exists: boolean;
         id: string;
@@ -964,8 +995,8 @@ export class ImportService {
           lastOperationTime: number;
         };
       }[]
-    >(`/chatChannels/${spUser.uid}`);
-    if (!Array.isArray(chatChannels.data)) {
+    >(sp_axios, `/chat/channels`);
+    if (!Array.isArray(chatChannels)) {
       throw new BadRequestException(
         errorCodes.IMPORT_DATA_INVALID_CHAT_CHANNELS,
       );
@@ -973,11 +1004,11 @@ export class ImportService {
 
     const chatMessages: Record<string, SimplyPluralApiChatMessage[]> = {};
 
-    for (const channel of chatChannels.data) {
-      const messagesResponse = await sp_axios.get<SimplyPluralApiChatMessage[]>(
+    for (const channel of chatChannels) {
+      const messages = await this.simplyPluralGet<SimplyPluralApiChatMessage[]>(
+        sp_axios,
         `/chat/messages/${channel.id}?limit=100`,
       );
-      const messages = messagesResponse.data;
       if (!Array.isArray(messages)) {
         throw new BadRequestException(
           errorCodes.IMPORT_DATA_INVALID_CHAT_MESSAGES,
@@ -988,10 +1019,9 @@ export class ImportService {
 
     const boardMessages: Record<string, SimplyPluralApiBoardMessage[]> = {};
     for (const member of members) {
-      const messagesResponse = await sp_axios.get<
+      const messages = await this.simplyPluralGet<
         SimplyPluralApiBoardMessage[]
-      >(`/messageBoard/messages/${member.id}`);
-      const messages = messagesResponse.data;
+      >(sp_axios, `/board/member/${member.id}`);
       if (!Array.isArray(messages)) {
         throw new BadRequestException(
           errorCodes.IMPORT_DATA_INVALID_BOARD_MESSAGES,
@@ -1012,7 +1042,12 @@ export class ImportService {
           isAsystem: true,
           username: spUser.username,
           desc: spUser.desc,
-          avatarUrl: spUser.avatarUrl,
+          avatarUrl:
+            spUser.avatarUrl && spUser.avatarUrl !== ''
+              ? spUser.avatarUrl
+              : spUser.avatarUuid !== ''
+                ? `https://spaces.apparyllis.com/avatars/${spUser.uid}/${spUser.avatarUuid}`
+                : '',
           color: spUser.color,
           fields: spUser.fields,
         },
@@ -1067,7 +1102,7 @@ export class ImportService {
         desc: group.content.desc,
         channels: group.content.channels,
       })),
-      channels: chatChannels.data.map((channel) => ({
+      channels: chatChannels.map((channel) => ({
         _id: channel.id,
         name: channel.content.name,
         desc: channel.content.desc,
