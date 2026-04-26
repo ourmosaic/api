@@ -22,10 +22,10 @@ export class FederationProcessor extends WorkerHost {
     );
     try {
       this.logger.log(
-        `Attempt ${job.attemptsMade + 1}: Sending message to ${message.targetFederation}/federation/receive`,
+        `Attempt ${job.attemptsMade + 1}: Sending message to ${message.targetFederation}/federation/inbox`,
       );
       const response = await axios.post(
-        `https://${message.targetFederation}/federation/receive`,
+        `https://${message.targetFederation}/federation/inbox`,
         message,
         {
           headers: {

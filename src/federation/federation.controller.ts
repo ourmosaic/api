@@ -38,7 +38,7 @@ export class FederationController {
   }
 
   @Version(VERSION_NEUTRAL)
-  @Post('receive')
+  @Post('inbox')
   async receiveMessage(
     @Body() message: AnyFederationMessage,
     @Headers('X-Federation-Uri') senderFederation: string,
