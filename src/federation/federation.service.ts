@@ -1,10 +1,4 @@
-import {
-  Injectable,
-  Inject,
-  forwardRef,
-  Logger,
-  BadRequestException,
-} from '@nestjs/common';
+import { BadRequestException, forwardRef, Inject, Injectable, Logger } from '@nestjs/common';
 import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
@@ -15,10 +9,10 @@ import { MembersService } from 'src/system/members/members.service';
 import { SystemService } from 'src/system/system.service';
 import { UsersService } from 'src/users/users.service';
 import {
-  FederationMessageType,
-  FrontUpdateEvent,
-  FriendRequestMessage,
   type AnyFederationMessage,
+  FederationMessageType,
+  FriendRequestMessage,
+  FrontUpdateEvent,
   MessagesBefore,
 } from './federationDef';
 import { SubscriberService } from 'src/redis/subscriber/subscriber.service';
@@ -28,7 +22,8 @@ import axios from 'axios';
 import { Queue } from 'bullmq';
 import stringify from 'fast-json-stable-stringify';
 import { REDIS_EVENTS } from 'src/utils/constants';
-import { FriendshipStatus } from '@prisma/client';
+import { FriendshipStatus, PrivacyLevel } from '@prisma/client';
+import { QueryDto, QueryType } from './dto/query.dto';
 
 const OUTBOX_REQUEST_TTL_SECONDS = 300;
 const OUTBOX_MAX_MESSAGES = 100;
@@ -828,5 +823,255 @@ export class FederationService {
       `Handshake message signature verified successfully for request from ${senderFederation}. Adding to known federations if not already present.`,
     );
     return this.getInfo();
+  }
+
+  async handleQuery(
+    senderFederationWithProto: string,
+    signature: string,
+    requestId: string,
+    timestamp: string,
+    query: QueryDto,
+  ) {
+    const senderFederation = senderFederationWithProto.replace(
+      /^https?:\/\//,
+      '',
+    );
+    this.logger.debug(
+      `Received query of type ${query.type} from ${senderFederation} with request ID ${requestId} at timestamp ${timestamp}`,
+    );
+    const isValid = await this.verifyMessage(
+      MessagesBefore.QUERY,
+      senderFederationWithProto,
+      signature,
+      requestId,
+      timestamp,
+    );
+    if (!isValid) {
+      this.logger.warn(
+        `Query message signature verification failed for query from ${senderFederation}. Possible tampering detected.`,
+      );
+      throw new BadRequestException('Invalid signature for query');
+    }
+    this.logger.debug(
+      `Query message signature verified successfully for query from ${senderFederation}. Processing query of type ${query.type}.`,
+    );
+    switch (query.type) {
+      case QueryType.USER_EXISTS: {
+        const user = await this.prisma.user.findFirst({
+          where: {
+            OR: [
+              { username: query.username },
+              { email: query.email },
+              { id: query.userId },
+            ],
+          },
+        });
+        return { exists: !!user };
+      }
+
+      case QueryType.SYSTEM_EXISTS: {
+        const system = await this.prisma.system.findFirst({
+          where: { id: query.systemId },
+        });
+        return { exists: !!system };
+      }
+
+      case QueryType.GET_FRONT: {
+        const system = await this.prisma.system.findFirst({
+          where: { id: query.systemId },
+        });
+        if (!system) {
+          this.logger.warn(
+            `System with ID ${query.systemId} not found for GET_FRONT query from federation ${senderFederation}`,
+          );
+          throw new BadRequestException('System not found for GET_FRONT query');
+        }
+
+        const user = await this.prisma.user.findFirst({
+          where: {
+            domain: senderFederation,
+            distantId: query.distantRequesterId,
+          },
+        });
+        if (!user)
+          this.logger.warn(
+            `User with distant ID ${query.distantRequesterId} from federation ${senderFederation} not found for this query. This usually means that the user will need to initiate a friend request to the recipient user before the federation can link their account and allow this query to succeed in the future.`,
+          );
+        if (system.frontPrivacy === PrivacyLevel.PUBLIC)
+          return this.membersService.getActiveFrontSessionsForSystem(
+            system,
+            true,
+          );
+        if (system.frontPrivacy === PrivacyLevel.FRIENDS) {
+          if (!user) {
+            this.logger.warn(
+              `Unauthenticated user from federation ${senderFederation} attempted to access friend-only front sessions for system ${system.id}. Rejecting request.`,
+            );
+            throw new BadRequestException(
+              'Authentication required to access friend-only front sessions',
+            );
+          }
+          const recipientUserId = system.userId;
+          const friendship = await this.prisma.friendship.findFirst({
+            where: {
+              OR: [
+                { userOneId: recipientUserId, userTwoId: user.id },
+                { userOneId: user.id, userTwoId: recipientUserId },
+              ],
+              status: FriendshipStatus.ACCEPTED,
+            },
+          });
+          if (!friendship) {
+            this.logger.warn(
+              `User ${user.username} from federation ${senderFederation} attempted to access friend-only front sessions for system ${system.id} without being friends with the recipient user. Rejecting request.`,
+            );
+            throw new BadRequestException(
+              'You must be friends with the recipient user to access friend-only front sessions',
+            );
+          }
+          return this.membersService.getActiveFrontSessionsForSystem(
+            system,
+            true,
+          );
+        }
+        if (system.frontPrivacy === PrivacyLevel.PRIVATE) {
+          this.logger.warn(
+            `User from federation ${senderFederation} attempted to access private front sessions for system ${system.id}. Rejecting request.`,
+          );
+          throw new BadRequestException(
+            'Front sessions for this system are private and cannot be accessed',
+          );
+        }
+        break;
+      }
+
+      case QueryType.GET_USER: {
+        const distantUser = await this.prisma.user.findFirst({
+          where: {
+            domain: senderFederation,
+            distantId: query.distantRequesterId,
+          },
+        });
+
+        if (!distantUser) {
+          this.logger.warn(
+            `User with distant ID ${query.distantRequesterId} from federation ${senderFederation} not found for GET_USER query. This usually means that the user will need to initiate a friend request to the recipient user before the federation can link their account and allow this query to succeed in the future.`,
+          );
+          throw new BadRequestException(
+            'User not found for GET_USER query. The user may need to initiate a friend request to the recipient user before this query can succeed in the future.',
+          );
+        }
+
+        const user = await this.prisma.user.findFirst({
+          where: {
+            OR: [
+              { username: query.username },
+              { email: query.email },
+              { id: query.userId },
+            ],
+            AND: [{ domain: null }],
+          },
+          select: {
+            id: true,
+            username: true,
+            email: true,
+            domain: true,
+            distantId: true,
+          },
+        });
+        if (!user) {
+          this.logger.warn(
+            `User not found for GET_USER query from federation ${senderFederation} with parameters username=${query.username}, email=${query.email}, userId=${query.userId}`,
+          );
+          throw new BadRequestException('User not found for GET_USER query');
+        }
+        // users need to be friends in order for the federation to link their account and allow this query to succeed in the future
+        const recipientUserId = user.id;
+        const friendship = await this.prisma.friendship.findFirst({
+          where: {
+            OR: [
+              { userOneId: recipientUserId, userTwoId: distantUser.id },
+              { userOneId: distantUser.id, userTwoId: recipientUserId },
+            ],
+            status: FriendshipStatus.ACCEPTED,
+          },
+        });
+        if (!friendship) {
+          this.logger.warn(
+            `User ${distantUser.username} from federation ${senderFederation} attempted to access GET_USER query for user ${user.username} without being friends with the recipient user. Rejecting request.`,
+          );
+          throw new BadRequestException(
+            'You must be friends with the recipient user to access their information',
+          );
+        }
+        return {
+          id: user.id,
+          username: user.username,
+          email: user.email,
+          domain: user.domain,
+          distantId: user.distantId,
+        };
+      }
+
+      case QueryType.GET_SYSTEM: {
+        const distantUser = await this.prisma.user.findFirst({
+          where: {
+            domain: senderFederation,
+            distantId: query.distantRequesterId,
+          },
+        });
+
+        if (!distantUser) {
+          this.logger.warn(
+            `User with distant ID ${query.distantRequesterId} from federation ${senderFederation} not found for GET_SYSTEM query. This usually means that the user will need to initiate a friend request to the recipient user before the federation can link their account and allow this query to succeed in the future.`,
+          );
+          throw new BadRequestException(
+            'User not found for GET_SYSTEM query. The user may need to initiate a friend request to the recipient user before this query can succeed in the future.',
+          );
+        }
+        const system = await this.prisma.system.findUnique({
+          where: { id: query.systemId },
+        });
+        if (!system) {
+          this.logger.warn(
+            `System with ID ${query.systemId} not found for GET_SYSTEM query from federation ${senderFederation}`,
+          );
+          throw new BadRequestException(
+            'System not found for GET_SYSTEM query',
+          );
+        }
+        const recipientUserId = system.userId;
+        const friendship = await this.prisma.friendship.findFirst({
+          where: {
+            OR: [
+              { userOneId: recipientUserId, userTwoId: distantUser.id },
+              { userOneId: distantUser.id, userTwoId: recipientUserId },
+            ],
+            status: FriendshipStatus.ACCEPTED,
+          },
+        });
+        if (!friendship) {
+          this.logger.warn(
+            `User ${distantUser.username} from federation ${senderFederation} attempted to access GET_SYSTEM query for system ${system.id} without being friends with the recipient user. Rejecting request.`,
+          );
+          throw new BadRequestException(
+            'You must be friends with the recipient user to access their system information',
+          );
+        }
+        return {
+          id: system.id,
+          customName: system.customName,
+          description: system.description,
+          avatarUrl: system.avatarUrl,
+          frontPrivacy: system.frontPrivacy,
+        };
+      }
+
+      default:
+        this.logger.warn(
+          `Received unsupported query type ${String(query.type)} from federation ${senderFederation}. No processing implemented for this query type.`,
+        );
+        throw new BadRequestException('Unsupported query type');
+    }
   }
 }

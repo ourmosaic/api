@@ -1,10 +1,5 @@
 export const messageHeader = `$MOSAIC$`;
 
-export enum MessagesBefore {
-  GET_OUTBOX = `${messageHeader}GET_OUTBOX`,
-  HANDSHAKE = `${messageHeader}HANDSHAKE`,
-}
-
 enum FederationMessageType {
   HANDSHAKE = 'HANDSHAKE',
   ERROR = 'ERROR',
@@ -15,6 +10,13 @@ enum FederationMessageType {
   SYSTEM_UPDATE = 'SYSTEM_UPDATE',
   FRONT_UPDATE = 'FRONT_UPDATE',
   GET_OUTBOX = 'GET_OUTBOX',
+  QUERY = 'QUERY',
+}
+
+export enum MessagesBefore {
+  GET_OUTBOX = `${messageHeader}${FederationMessageType.GET_OUTBOX}`,
+  HANDSHAKE = `${messageHeader}${FederationMessageType.HANDSHAKE}`,
+  QUERY = `${messageHeader}${FederationMessageType.QUERY}`,
 }
 
 enum FrontUpdateEvent {

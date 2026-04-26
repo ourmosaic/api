@@ -58,22 +58,26 @@ model User {
   updatedAt   DateTime @updatedAt
   isFederated Boolean  @default(false)
   domain      String?
+  distantId   String?
 
   isSystem Boolean @default(false) // Permet de savoir rapidement si l'utilisateur est un système
   system   System?
 
   sentFriendRequests     Friendship[] @relation("UserOne")
   receivedFriendRequests Friendship[] @relation("UserTwo")
+
+  @@unique([distantId, domain])
 }
 
 model System {
-  id          String  @id @default(uuid())
-  customName  String?
-  avatarUrl   String?
-  description String?
-  color       String?
-  domain      String?
-  distantId   String? // ID distant pour les systèmes fédérés
+  id           String       @id @default(uuid())
+  customName   String?
+  avatarUrl    String?
+  description  String?
+  color        String?
+  domain       String?
+  distantId    String? // ID distant pour les systèmes fédérés
+  frontPrivacy PrivacyLevel @default(PRIVATE)
 
   userId String @unique
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -114,6 +118,8 @@ model Member {
 
   boardMessagesSent     BoardMessage[] @relation("BoardMessageFrom")
   boardMessagesReceived BoardMessage[] @relation("BoardMessageTo")
+
+  @@unique([distantId, domain])
 }
 
 model Group {

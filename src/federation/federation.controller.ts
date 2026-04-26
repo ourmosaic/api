@@ -9,6 +9,7 @@ import {
 } from '@nestjs/common';
 import { FederationService } from './federation.service';
 import type { AnyFederationMessage } from './federationDef';
+import { QueryDto } from './dto/query.dto';
 
 @Controller('federation')
 export class FederationController {
@@ -64,6 +65,24 @@ export class FederationController {
       signature,
       requestId,
       timestamp,
+    );
+  }
+
+  @Version('1')
+  @Post('query')
+  async query(
+    @Headers('X-Federation-Uri') senderFederation: string,
+    @Headers('X-Federation-Signature') signature: string,
+    @Headers('X-Request-Id') requestId: string,
+    @Headers('X-Request-Timestamp') timestamp: string,
+    @Body() query: QueryDto,
+  ) {
+    return this.federationService.handleQuery(
+      senderFederation,
+      signature,
+      requestId,
+      timestamp,
+      query,
     );
   }
 }

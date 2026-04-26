@@ -99,5 +99,7 @@ export default {
       "Donnée d'importation invalide : messages de chat invalides",
     [errorCodes.IMPORT_DATA_INVALID_BOARD_MESSAGES]:
       "Donnée d'importation invalide : messages de tableau invalides",
+    [errorCodes.INVALID_QUERY_TYPE]: 'Type de requête invalide',
+    [errorCodes.USERNAME_INVALID]: "Le nom d'utilisateur est invalide",
   },
 };
