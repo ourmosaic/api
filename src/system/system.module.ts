@@ -6,6 +6,7 @@ import { PrismaModule } from 'src/prisma/prisma.module';
 import { MembersModule } from './members/members.module';
 import { GroupsModule } from './groups/groups.module';
 import { StorageModule } from 'src/storage/storage.module';
+import { OptionalSystemInterceptor } from './optional-system.interceptor';
 
 @Module({
   imports: [
@@ -15,7 +16,7 @@ import { StorageModule } from 'src/storage/storage.module';
     forwardRef(() => GroupsModule),
     StorageModule,
   ],
-  providers: [SystemService],
+  providers: [SystemService, OptionalSystemInterceptor],
   controllers: [SystemController],
   exports: [SystemService],
 })
