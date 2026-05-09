@@ -13,6 +13,8 @@ import { FriendshipModule } from './friendship/friendship.module';
 import { UsersModule } from './users/users.module';
 import { FederationModule } from './federation/federation.module';
 import { NotificationsModule } from './notifications/notifications.module';
+import { SafetyService } from './safety/safety.service';
+import { SafetyModule } from './safety/safety.module';
 
 @Module({
   imports: [
@@ -30,6 +32,7 @@ import { NotificationsModule } from './notifications/notifications.module';
     UsersModule,
     FederationModule,
     NotificationsModule,
+    SafetyModule,
   ],
   controllers: [AppController],
   providers: [AppService],

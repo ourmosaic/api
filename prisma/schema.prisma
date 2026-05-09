@@ -1,8 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Get a free hosted Postgres database in seconds: `npx create-db`
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -49,6 +44,58 @@ enum FriendshipType {
   SUPERFRIENDS
 }
 
+enum ReportType {
+  SYSTEM
+  USER
+  MEMBER
+}
+
+model Report {
+  id          String     @id @default(uuid())
+  type        ReportType
+  description String?
+  createdAt   DateTime   @default(now())
+  reporterId  String
+  reporter    User       @relation(fields: [reporterId], references: [id], onDelete: Cascade)
+
+  ReportSystem ReportSystem?
+  ReportUser   ReportUser?
+  ReportMember ReportMember?
+}
+
+model ReportSystem {
+  id        String   @id @default(uuid())
+  reportId  String   @unique
+  systemId  String
+  reason    String?
+  createdAt DateTime @default(now())
+
+  report Report @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  system System @relation(fields: [systemId], references: [id], onDelete: Cascade)
+}
+
+model ReportUser {
+  id        String   @id @default(uuid())
+  reportId  String   @unique
+  userId    String
+  reason    String?
+  createdAt DateTime @default(now())
+
+  report Report @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model ReportMember {
+  id        String   @id @default(uuid())
+  reportId  String   @unique
+  memberId  String
+  reason    String?
+  createdAt DateTime @default(now())
+
+  report Report @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  member Member @relation(fields: [memberId], references: [id], onDelete: Cascade)
+}
+
 model User {
   id          String   @id @default(uuid())
   username    String   @unique
@@ -59,12 +106,15 @@ model User {
   isFederated Boolean  @default(false)
   domain      String?
   distantId   String?
+  fedePerms   Int      @default(0) // permissions sur la fede (bitfield)
 
   isSystem Boolean @default(false) // Permet de savoir rapidement si l'utilisateur est un système
   system   System?
 
   sentFriendRequests     Friendship[] @relation("UserOne")
   receivedFriendRequests Friendship[] @relation("UserTwo")
+  ReportUser             ReportUser[]
+  Report                 Report[]
 
   @@unique([distantId, domain])
 }
@@ -90,6 +140,7 @@ model System {
   channels Channel[]
 
   channelCategories ChannelCategory[]
+  ReportSystem      ReportSystem[]
 }
 
 model Member {
@@ -118,6 +169,7 @@ model Member {
 
   boardMessagesSent     BoardMessage[] @relation("BoardMessageFrom")
   boardMessagesReceived BoardMessage[] @relation("BoardMessageTo")
+  ReportMember          ReportMember[]
 
   @@unique([distantId, domain])
 }

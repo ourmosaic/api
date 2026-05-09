@@ -101,5 +101,11 @@ export default {
       "Donnée d'importation invalide : messages de tableau invalides",
     [errorCodes.INVALID_QUERY_TYPE]: 'Type de requête invalide',
     [errorCodes.USERNAME_INVALID]: "Le nom d'utilisateur est invalide",
+    [errorCodes.REPORT_TYPE_INVALID]: 'Le type de rapport est invalide',
+    [errorCodes.REPORT_TARGET_ID_INVALID]:
+      "L'ID de la cible du rapport est invalide",
+    [errorCodes.REPORT_REASON_INVALID]: 'La raison du rapport est invalide',
+    [errorCodes.REPORT_REASON_TOO_SHORT]:
+      'La raison du rapport est trop courte (minimum 10 caractères)',
   },
 };

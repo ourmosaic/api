@@ -19,6 +19,12 @@ export enum MessagesBefore {
   QUERY = `${messageHeader}${FederationMessageType.QUERY}`,
 }
 
+export const FEDE_PERMISSIONS = {
+  USER: 1 << 0,
+  MODERATOR: 1 << 1,
+  ADMIN: 1 << 2,
+};
+
 enum FrontUpdateEvent {
   FRONT_SESSION_STARTED = 'FRONT_SESSION_STARTED',
   FRONT_SESSION_ENDED = 'FRONT_SESSION_ENDED',
