@@ -4,6 +4,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { StorageService } from '../storage/storage.service';
 import { SystemService } from '../system/system.service';
 import { ImportService } from './import.service';
+import { RedisService } from '../redis/redis.service';
 
 describe('ImportService', () => {
   let service: ImportService;
@@ -16,6 +17,7 @@ describe('ImportService', () => {
         { provide: StorageService, useValue: {} },
         { provide: SystemService, useValue: {} },
         { provide: ConfigService, useValue: { get: jest.fn() } },
+        { provide: RedisService, useValue: { publish: jest.fn() } },
       ],
     }).compile();
 

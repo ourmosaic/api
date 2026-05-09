@@ -1,5 +1,7 @@
 import {
   Body,
+  HttpCode,
+  HttpStatus,
   Controller,
   Post,
   UseGuards,
@@ -17,6 +19,7 @@ export class ImportController {
   @Post('simplyplural')
   @UseGuards(AuthGuard)
   @Version('1')
+  @HttpCode(HttpStatus.ACCEPTED)
   async importFromSimplyPlural(@Body() data: any, @CurrentUser() user: User) {
     return this.importService.importFromSimplyPlural(user, data);
   }
@@ -24,6 +27,7 @@ export class ImportController {
   @Post('simplyplural/api')
   @UseGuards(AuthGuard)
   @Version('1')
+  @HttpCode(HttpStatus.ACCEPTED)
   async importFromSimplyPluralApi(
     @Body() data: { apiKey: string },
     @CurrentUser() user: User,

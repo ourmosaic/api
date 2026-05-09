@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrivacyLevel, User } from '@prisma/client';
 import { PrismaService } from 'src/prisma/prisma.service';
@@ -9,7 +9,12 @@ import errorCodes from 'src/utils/errorCodes';
 import axios, { AxiosInstance } from 'axios';
 import sharp from 'sharp';
 import { StorageService } from 'src/storage/storage.service';
-import { buildMinioUrl, MINIO_BUCKET_NAME } from 'src/utils/constants';
+import {
+  buildMinioUrl,
+  MINIO_BUCKET_NAME,
+  REDIS_EVENTS,
+} from 'src/utils/constants';
+import { RedisService } from 'src/redis/redis.service';
 
 const BATCH_SIZE = 1000;
 
@@ -166,12 +171,108 @@ const isSimplyPluralImportPayload = (
 
 @Injectable()
 export class ImportService {
+  private readonly logger = new Logger(ImportService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly storageService: StorageService,
     private readonly systemService: SystemService,
     private readonly configService: ConfigService,
+    private readonly redisService: RedisService,
   ) {}
+
+  private async publishImportEvent(
+    userId: string,
+    payload: Record<string, unknown>,
+  ): Promise<void> {
+    await this.redisService.publish(
+      `user:${userId}:imports`,
+      JSON.stringify(payload),
+    );
+  }
+
+  importFromSimplyPlural(user: User, data: unknown) {
+    const importId = randomUUID();
+    void this.publishImportEvent(user.id, {
+      event: REDIS_EVENTS.IMPORT_STARTED,
+      importId,
+    }).catch((error) => {
+      this.logger.error(
+        `Failed to publish start event for import ${importId}`,
+        error instanceof Error ? error.stack : String(error),
+      );
+    });
+    void this.executeSimplyPluralImport(user, data)
+      .then(async (system) => {
+        await this.publishImportEvent(user.id, {
+          event: REDIS_EVENTS.IMPORT_COMPLETED,
+          importId,
+          systemId: system.id,
+        });
+      })
+      .catch(async (error) => {
+        await this.publishImportEvent(user.id, {
+          event: REDIS_EVENTS.IMPORT_FAILED,
+          importId,
+          error:
+            error instanceof Error ? error.message : 'Unknown import failure',
+        });
+        this.logger.error(
+          `Simply Plural import ${importId} failed unexpectedly`,
+          error instanceof Error ? error.stack : String(error),
+        );
+      });
+
+    return {
+      message:
+        "L'import est en cours, vous recevrez une notification lorsque ce dernier sera fini",
+      importId,
+    };
+  }
+
+  importFromSimplyPluralApi(user: User, data: { apiKey: string }) {
+    const { apiKey } = data;
+    if (!apiKey) {
+      throw new BadRequestException(errorCodes.IMPORT_DATA_MISSING_API_KEY);
+    }
+
+    const importId = randomUUID();
+    void this.publishImportEvent(user.id, {
+      event: REDIS_EVENTS.IMPORT_STARTED,
+      importId,
+    }).catch((error) => {
+      this.logger.error(
+        `Failed to publish start event for API import ${importId}`,
+        error instanceof Error ? error.stack : String(error),
+      );
+    });
+    void this.executeSimplyPluralImportApi(user, apiKey)
+      .then(async (system) => {
+        await this.publishImportEvent(user.id, {
+          event: REDIS_EVENTS.IMPORT_COMPLETED,
+          importId,
+          systemId: system.id,
+        });
+      })
+      .catch(async (error) => {
+        await this.publishImportEvent(user.id, {
+          event: REDIS_EVENTS.IMPORT_FAILED,
+          importId,
+          error:
+            error instanceof Error ? error.message : 'Unknown import failure',
+        });
+        this.logger.error(
+          `Simply Plural API import ${importId} failed unexpectedly`,
+          error instanceof Error ? error.stack : String(error),
+        );
+      });
+
+    return {
+      message:
+        "L'import est en cours, vous recevrez une notification lorsque ce dernier sera fini",
+      importId,
+    };
+  }
 
   private getMinioUrl(): string {
     return buildMinioUrl({
@@ -204,7 +305,7 @@ export class ImportService {
     }
   }
 
-  async importFromSimplyPlural(user: User, data: unknown) {
+  private async executeSimplyPluralImport(user: User, data: unknown) {
     const minioUrl = this.getMinioUrl();
 
     if (!isSimplyPluralImportPayload(data)) {
@@ -769,12 +870,7 @@ export class ImportService {
     return this.systemService.getSystemById(system.id);
   }
 
-  async importFromSimplyPluralApi(user: User, data: { apiKey: string }) {
-    const { apiKey } = data;
-    if (!apiKey) {
-      throw new BadRequestException(errorCodes.IMPORT_DATA_MISSING_API_KEY);
-    }
-
+  private async executeSimplyPluralImportApi(user: User, apiKey: string) {
     const SIMPLY_PLURAL_BASE_URL = 'https://api.apparyllis.com/v1';
     const sp_axios = axios.create({
       baseURL: SIMPLY_PLURAL_BASE_URL,
@@ -1118,6 +1214,6 @@ export class ImportService {
         })),
     };
 
-    return this.importFromSimplyPlural(user, simplyPluralData);
+    return this.executeSimplyPluralImport(user, simplyPluralData);
   }
 }

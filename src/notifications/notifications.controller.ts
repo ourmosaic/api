@@ -50,6 +50,12 @@ export class NotificationsController {
           },
         })),
       ),
+      this.notificationsService.streamChannel(`user:${userId}:imports`).pipe(
+        map((event) => ({
+          ...event,
+          data: { topic: SSE_TOPICS.IMPORT, payload: event.data },
+        })),
+      ),
     ];
 
     if (system?.id) {
