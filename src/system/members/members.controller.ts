@@ -124,6 +124,28 @@ export class MembersController {
     );
   }
 
+  @Post('front-session/sync')
+  @Version('1')
+  @UseGuards(AuthGuard)
+  @UseInterceptors(SystemInterceptor)
+  @ApiOkResponse({
+    description: 'Front sessions synchronized successfully',
+    type: [FrontSessionEntity],
+  })
+  @ApiForbiddenResponse({ description: 'Forbidden.' })
+  async syncFrontSessions(
+    @Sys() system: System,
+    @Body('sessions')
+    sessions: {
+      memberId: string;
+      sessionId: string;
+      startTime: number;
+      endTime?: number;
+    }[],
+  ): Promise<FrontSession[]> {
+    return this.membersService.syncFrontSessions(sessions, system);
+  }
+
   @Post(':id/front-session/start')
   @Version('1')
   @UseGuards(AuthGuard)

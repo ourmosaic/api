@@ -193,6 +193,54 @@ export class MembersService {
     });
   }
 
+  async syncFrontSessions(
+    sessions: {
+      memberId: string;
+      sessionId: string;
+      startTime: number;
+      endTime?: number;
+    }[],
+    system: System,
+  ): Promise<FrontSession[]> {
+    const createdSessions: FrontSession[] = [];
+
+    for (const session of sessions) {
+      const member = await this.prisma.member.findUnique({
+        where: {
+          id: session.memberId,
+        },
+      });
+
+      if (!member || member.systemId !== system.id) {
+        continue;
+      }
+
+      const existingSession = await this.prisma.frontSession.findUnique({
+        where: {
+          id: session.sessionId,
+        },
+      });
+
+      if (existingSession) {
+        continue;
+      }
+
+      const createdSession = await this.prisma.frontSession.create({
+        data: {
+          id: session.sessionId,
+          memberId: session.memberId,
+          systemId: system.id,
+          startTime: new Date(session.startTime),
+          endTime: session.endTime ? new Date(session.endTime) : null,
+        },
+      });
+
+      createdSessions.push(createdSession);
+    }
+
+    return createdSessions;
+  }
+
   async getMembersFor(
     system: System,
     includeCustomFields: boolean = false,
