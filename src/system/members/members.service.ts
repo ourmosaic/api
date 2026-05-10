@@ -24,6 +24,7 @@ import { RedisService } from 'src/redis/redis.service';
 import { REDIS_EVENTS } from 'src/utils/constants';
 import { FederationService } from 'src/federation/federation.service';
 import { FederationMessageType } from 'src/federation/federationDef';
+import { v5 as uuidv5 } from 'uuid';
 
 export type MemberWithGroups = Member & {
   groups: MemberOnGroups[];
@@ -215,19 +216,35 @@ export class MembersService {
         continue;
       }
 
+      const namespacedSessionId = uuidv5(session.sessionId, system.id);
+
       const existingSession = await this.prisma.frontSession.findUnique({
         where: {
-          id: session.sessionId,
+          id: namespacedSessionId,
         },
       });
 
       if (existingSession) {
+        if (
+          session.endTime &&
+          (!existingSession.endTime ||
+            existingSession.endTime.getTime() !== session.endTime)
+        ) {
+          await this.prisma.frontSession.update({
+            where: {
+              id: namespacedSessionId,
+            },
+            data: {
+              endTime: new Date(session.endTime),
+            },
+          });
+        }
         continue;
       }
 
       const createdSession = await this.prisma.frontSession.create({
         data: {
-          id: session.sessionId,
+          id: namespacedSessionId,
           memberId: session.memberId,
           systemId: system.id,
           startTime: new Date(session.startTime),
