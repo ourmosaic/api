@@ -50,7 +50,7 @@ Each SSE stream sends:
 
 - `ready` when the Redis subscription is established
 - `notification` for business events
-- `keepalive` immediately on connection, then every ~10 seconds while idle
+- `keepalive` immediately on connection, then every ~5 seconds while idle
 
 Example payload on `/v1/notifications`:
 

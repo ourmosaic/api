@@ -39,4 +39,4 @@ export const SSE_TOPICS = {
   IMPORT: 'import',
 };
 
-export const SSE_KEEPALIVE_INTERVAL_MS = 10_000;
+export const SSE_KEEPALIVE_INTERVAL_MS = 5_000;
