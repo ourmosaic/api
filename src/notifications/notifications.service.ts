@@ -11,9 +11,6 @@ export class NotificationsService {
   streamChannel(channel: string): Observable<MessageEvent> {
     return new Observable<MessageEvent>((observer) => {
       const streamClient = this.subscriber.duplicate();
-      const keepAlive = setInterval(() => {
-        observer.next({ type: 'keepalive', data: { channel } });
-      }, 20_000);
 
       const onMessage = (incomingChannel: string, rawPayload: string) => {
         if (incomingChannel !== channel) {
@@ -46,7 +43,6 @@ export class NotificationsService {
         });
 
       return () => {
-        clearInterval(keepAlive);
         streamClient.off('message', onMessage);
         streamClient.off('error', onError);
         streamClient

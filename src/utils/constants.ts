@@ -38,3 +38,5 @@ export const SSE_TOPICS = {
   FEDERATION_FRONT_SESSIONS: 'federation-front-sessions',
   IMPORT: 'import',
 };
+
+export const SSE_KEEPALIVE_INTERVAL_MS = 10_000;

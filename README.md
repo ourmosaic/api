@@ -36,14 +36,23 @@
 
 ### Real-time Notifications (SSE)
 
-- `GET /v1/notifications/stream` -> single multiplexed stream for friendship + local front sessions + federated front sessions
+- `GET /v1/notifications` -> global multiplexed stream for friendship + imports + federated front sessions (+ local front sessions when a system exists)
+- `GET /v1/notifications/user` -> user-only stream for friend requests/updates + imports
+- `GET /v1/notifications/system` -> system-only stream for local front session updates
+- `GET /v1/notifications/stream` -> legacy alias for the global stream
 - `GET /v1/notifications/friendship` -> friend requests/updates for the authenticated user
 - `GET /v1/notifications/front-sessions` -> front session updates for the authenticated system
 - `GET /v1/notifications/federation/front-sessions` -> federated front updates relayed from remote instances
 
 All endpoints use Server-Sent Events and require the same Bearer authentication as the REST API.
 
-Example payload on `/v1/notifications/stream`:
+Each SSE stream sends:
+
+- `ready` when the Redis subscription is established
+- `notification` for business events
+- `keepalive` immediately on connection, then every ~10 seconds while idle
+
+Example payload on `/v1/notifications`:
 
 ```json
 {
@@ -55,6 +64,15 @@ Example payload on `/v1/notifications/stream`:
       "memberId": "..."
     }
   }
+}
+```
+
+Example keepalive event:
+
+```json
+{
+  "scope": "notifications:global",
+  "timestamp": "2026-05-10T12:34:56.789Z"
 }
 ```
 
