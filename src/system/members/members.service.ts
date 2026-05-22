@@ -197,7 +197,7 @@ export class MembersService {
   async syncFrontSessions(
     sessions: {
       memberId: string;
-      sessionId: string;
+      sessionId?: string;
       startTime: number;
       endTime?: number;
     }[],
@@ -216,7 +216,28 @@ export class MembersService {
         continue;
       }
 
-      const namespacedSessionId = uuidv5(session.sessionId, system.id);
+      let namespacedSessionId: string;
+
+      if (session.sessionId) {
+        namespacedSessionId = uuidv5(session.sessionId, system.id);
+      } else {
+        const oldestActiveSession = await this.prisma.frontSession.findFirst({
+          where: {
+            memberId: session.memberId,
+            systemId: system.id,
+            endTime: null,
+          },
+          orderBy: {
+            startTime: 'asc',
+          },
+        });
+
+        if (!oldestActiveSession) {
+          continue;
+        }
+
+        namespacedSessionId = oldestActiveSession.id;
+      }
 
       const existingSession = await this.prisma.frontSession.findUnique({
         where: {
