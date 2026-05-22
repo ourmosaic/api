@@ -216,11 +216,13 @@ export class MembersService {
         continue;
       }
 
-      let namespacedSessionId: string;
+      let namespacedSessionId: string | null = null;
 
       if (session.sessionId) {
         namespacedSessionId = uuidv5(session.sessionId, system.id);
-      } else {
+      }
+
+      if (!namespacedSessionId) {
         const oldestActiveSession = await this.prisma.frontSession.findFirst({
           where: {
             memberId: session.memberId,
@@ -245,11 +247,36 @@ export class MembersService {
         },
       });
 
-      if (existingSession) {
+      if (!existingSession && session.sessionId) {
+        const oldestActiveSession = await this.prisma.frontSession.findFirst({
+          where: {
+            memberId: session.memberId,
+            systemId: system.id,
+            endTime: null,
+          },
+          orderBy: {
+            startTime: 'asc',
+          },
+        });
+
+        if (!oldestActiveSession) {
+          continue;
+        }
+
+        namespacedSessionId = oldestActiveSession.id;
+      }
+
+      const finalSession = await this.prisma.frontSession.findUnique({
+        where: {
+          id: namespacedSessionId,
+        },
+      });
+
+      if (finalSession) {
         if (
           session.endTime &&
-          (!existingSession.endTime ||
-            existingSession.endTime.getTime() !== session.endTime)
+          (!finalSession.endTime ||
+            finalSession.endTime.getTime() !== session.endTime)
         ) {
           await this.prisma.frontSession.update({
             where: {
