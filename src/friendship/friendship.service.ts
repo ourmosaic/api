@@ -33,8 +33,24 @@ export class FriendshipService {
 
   async sendFriendRequest(sender: UserType, dto: SendRequestDto) {
     if (!dto.recipientId) {
-      if (!dto.federationUrl || !dto.username) {
+      if (!dto.username) {
         throw new BadRequestException(errorCodes.INVALID_FRIEND_REQUEST);
+      }
+      if (!dto.federationUrl) {
+        const recipient = await this.prisma.user.findUnique({
+          where: { username: dto.username },
+        });
+        if (!recipient) {
+          throw new BadRequestException(errorCodes.INVALID_FRIEND_REQUEST);
+        }
+        if (recipient.id === sender.id) {
+          throw new BadRequestException(errorCodes.CANNOT_FRIEND_SELF);
+        }
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+        return this.sendFriendRequest(sender, {
+          ...dto,
+          recipientId: recipient.id,
+        });
       }
       const message: FriendRequestMessage = {
         type: FederationMessageType.FRIEND_REQUEST,
