@@ -138,7 +138,7 @@ export class MembersController {
     @Body('sessions')
     sessions: {
       memberId: string;
-      sessionId: string;
+      sessionId?: string;
       startTime: number;
       endTime?: number;
     }[],

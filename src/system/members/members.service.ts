@@ -234,36 +234,14 @@ export class MembersService {
           },
         });
 
-        if (!oldestActiveSession) {
-          continue;
+        if (oldestActiveSession) {
+          namespacedSessionId = oldestActiveSession.id;
+        } else {
+          namespacedSessionId = uuidv5(
+            `${session.memberId}:${session.startTime}`,
+            system.id,
+          );
         }
-
-        namespacedSessionId = oldestActiveSession.id;
-      }
-
-      const existingSession = await this.prisma.frontSession.findUnique({
-        where: {
-          id: namespacedSessionId,
-        },
-      });
-
-      if (!existingSession && session.sessionId) {
-        const oldestActiveSession = await this.prisma.frontSession.findFirst({
-          where: {
-            memberId: session.memberId,
-            systemId: system.id,
-            endTime: null,
-          },
-          orderBy: {
-            startTime: 'asc',
-          },
-        });
-
-        if (!oldestActiveSession) {
-          continue;
-        }
-
-        namespacedSessionId = oldestActiveSession.id;
       }
 
       const finalSession = await this.prisma.frontSession.findUnique({
