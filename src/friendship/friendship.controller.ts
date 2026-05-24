@@ -6,6 +6,7 @@ import {
   Param,
   Patch,
   Post,
+  Query,
   UseGuards,
   Version,
 } from '@nestjs/common';
@@ -21,6 +22,10 @@ import type { FriendSystemView } from './friendship.service';
 @Controller('friendship')
 export class FriendshipController {
   constructor(private readonly friendshipService: FriendshipService) {}
+
+  private parseBooleanQuery(value?: string | boolean): boolean {
+    return value === true || value === 'true';
+  }
 
   @Post('request')
   @Version('1')
@@ -80,8 +85,24 @@ export class FriendshipController {
     @CurrentUser() user: User,
     @Param('friendId') friendId: string,
   ): Promise<FriendSystemView> {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-return,@typescript-eslint/no-unsafe-call
     return this.friendshipService.getFriendSystem(user, friendId);
+  }
+
+  @Get(':friendId/members')
+  @Version('1')
+  @UseGuards(AuthGuard)
+  getFriendMembers(
+    @CurrentUser() user: User,
+    @Param('friendId') friendId: string,
+    @Query('withCustomFields') withCustomFields?: string | boolean,
+  ): ReturnType<FriendshipService['getFriendMembers']> {
+    return this.friendshipService.getFriendMembers(
+      user,
+      friendId,
+      withCustomFields === undefined
+        ? true
+        : this.parseBooleanQuery(withCustomFields),
+    );
   }
 
   @Patch(':friendId/permissions')
@@ -92,7 +113,6 @@ export class FriendshipController {
     @Param('friendId') friendId: string,
     @Body() dto: UpdateFriendshipPermissionsDto,
   ): ReturnType<FriendshipService['updateFriendshipPermissions']> {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-call
     return this.friendshipService.updateFriendshipPermissions(
       user,
       friendId,

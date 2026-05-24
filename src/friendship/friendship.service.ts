@@ -8,6 +8,7 @@ import {
 import {
   FriendshipStatus,
   FriendshipType,
+  PrivacyLevel,
   type System,
   type User as UserType,
 } from '@prisma/client';
@@ -39,10 +40,32 @@ type FriendshipWithPermissions = FriendshipPermissions & {
   status: FriendshipStatus;
 };
 
+type ActiveFrontSessionRow = {
+  id: string;
+  startTime: Date;
+  member: MemberWithGroups;
+};
+
 export type ActiveFrontSession = {
   sessionId: string;
   member: MemberWithGroups;
   startTime: Date;
+};
+
+export type VisibleCustomFieldValue = {
+  id: string;
+  value: string;
+  customFieldId: string;
+  customField: {
+    id: string;
+    name: string;
+    type: string;
+    privacy: string;
+  };
+};
+
+export type FriendVisibleMember = MemberWithGroups & {
+  customFieldValues?: VisibleCustomFieldValue[];
 };
 
 export type FriendSystemView = {
@@ -54,7 +77,7 @@ export type FriendSystemView = {
   frontPrivacy: System['frontPrivacy'];
   permissions: Omit<FriendshipPermissions, 'notifyMeOnFriendFrontChange'>;
   activeFrontSessions: ActiveFrontSession[];
-  members: MemberWithGroups[];
+  members: FriendVisibleMember[];
 };
 
 @Injectable()
@@ -65,6 +88,48 @@ export class FriendshipService {
     @Inject(forwardRef(() => FederationService))
     private readonly federationService: FederationService,
   ) {}
+
+  private async getVisibleMembersForFriendSystem(
+    systemId: string,
+    includeCustomFields: boolean,
+  ): Promise<FriendVisibleMember[]> {
+    return (await this.prisma.member.findMany({
+      where: {
+        systemId,
+        privacy: {
+          not: PrivacyLevel.PRIVATE,
+        },
+      },
+      orderBy: [{ name: 'asc' }, { id: 'asc' }],
+      include: {
+        groups: true,
+        ...(includeCustomFields && {
+          customFieldValues: {
+            where: {
+              customField: {
+                privacy: {
+                  not: PrivacyLevel.PRIVATE,
+                },
+              },
+            },
+            select: {
+              id: true,
+              value: true,
+              customFieldId: true,
+              customField: {
+                select: {
+                  id: true,
+                  name: true,
+                  type: true,
+                  privacy: true,
+                },
+              },
+            },
+          },
+        }),
+      },
+    })) as unknown as FriendVisibleMember[];
+  }
 
   async sendFriendRequest(sender: UserType, dto: SendRequestDto) {
     if (!dto.recipientId) {
@@ -359,7 +424,7 @@ export class FriendshipService {
 
     const [activeFrontSessions, members] = await Promise.all([
       friendship.canViewFront
-        ? this.prisma.frontSession.findMany({
+        ? (this.prisma.frontSession.findMany({
             where: {
               systemId: system.id,
               endTime: null,
@@ -374,19 +439,11 @@ export class FriendshipService {
                 },
               },
             },
-          })
-        : Promise.resolve([]),
+          }) as unknown as Promise<ActiveFrontSessionRow[]>)
+        : Promise.resolve([] as ActiveFrontSessionRow[]),
       friendship.canViewSharedMembers
-        ? this.prisma.member.findMany({
-            where: {
-              systemId: system.id,
-            },
-            orderBy: [{ name: 'asc' }, { id: 'asc' }],
-            include: {
-              groups: true,
-            },
-          })
-        : Promise.resolve([] as MemberWithGroups[]),
+        ? this.getVisibleMembersForFriendSystem(system.id, true)
+        : Promise.resolve([] as FriendVisibleMember[]),
     ]);
 
     return {
@@ -403,11 +460,46 @@ export class FriendshipService {
       },
       activeFrontSessions: activeFrontSessions.map((session) => ({
         sessionId: session.id,
-        member: session.member as MemberWithGroups,
+        member: session.member,
         startTime: session.startTime,
       })),
       members,
     };
+  }
+
+  async getFriendMembers(
+    user: UserType,
+    friendId: string,
+    includeCustomFields: boolean = true,
+  ): Promise<FriendVisibleMember[]> {
+    const friendship = (await this.prisma.friendship.findFirst({
+      where: {
+        userOneId: friendId,
+        userTwoId: user.id,
+        status: FriendshipStatus.ACCEPTED,
+      },
+    })) as FriendshipWithPermissions | null;
+
+    if (!friendship) {
+      throw new BadRequestException(errorCodes.FRIENDSHIP_NOT_FOUND);
+    }
+
+    if (!friendship.canViewSharedMembers) {
+      return [];
+    }
+
+    const system = await this.prisma.system.findUnique({
+      where: { userId: friendId },
+    });
+
+    if (!system) {
+      throw new NotFoundException(errorCodes.USER_HAS_NO_SYSTEM);
+    }
+
+    return this.getVisibleMembersForFriendSystem(
+      system.id,
+      includeCustomFields,
+    );
   }
 
   async updateFriendshipType(
