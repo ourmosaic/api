@@ -39,6 +39,12 @@ type FriendshipWithPermissions = FriendshipPermissions & {
   status: FriendshipStatus;
 };
 
+export type ActiveFrontSession = {
+  sessionId: string;
+  member: MemberWithGroups;
+  startTime: Date;
+};
+
 export type FriendSystemView = {
   id: string;
   customName: string | null;
@@ -47,7 +53,7 @@ export type FriendSystemView = {
   color: string | null;
   frontPrivacy: System['frontPrivacy'];
   permissions: Omit<FriendshipPermissions, 'notifyMeOnFriendFrontChange'>;
-  frontMember: MemberWithGroups | null;
+  activeFrontSessions: ActiveFrontSession[];
   members: MemberWithGroups[];
 };
 
@@ -351,9 +357,9 @@ export class FriendshipService {
       throw new NotFoundException(errorCodes.USER_HAS_NO_SYSTEM);
     }
 
-    const [frontSession, members] = await Promise.all([
+    const [activeFrontSessions, members] = await Promise.all([
       friendship.canViewFront
-        ? this.prisma.frontSession.findFirst({
+        ? this.prisma.frontSession.findMany({
             where: {
               systemId: system.id,
               endTime: null,
@@ -369,7 +375,7 @@ export class FriendshipService {
               },
             },
           })
-        : Promise.resolve(null),
+        : Promise.resolve([]),
       friendship.canViewSharedMembers
         ? this.prisma.member.findMany({
             where: {
@@ -395,7 +401,11 @@ export class FriendshipService {
         canReceiveFrontNotifications: friendship.canReceiveFrontNotifications,
         canViewSharedMembers: friendship.canViewSharedMembers,
       },
-      frontMember: frontSession?.member ?? null,
+      activeFrontSessions: activeFrontSessions.map((session) => ({
+        sessionId: session.id,
+        member: session.member as MemberWithGroups,
+        startTime: session.startTime,
+      })),
       members,
     };
   }
