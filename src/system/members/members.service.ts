@@ -39,6 +39,13 @@ type FederationFrontUpdateBroadcastPayload = {
   frontId: string;
   event: FrontUpdateEventName;
 };
+type FriendFrontUpdatePayload = {
+  event: FrontUpdateEventName;
+  timestamp: number;
+  systemId: string;
+  memberId: string;
+  frontId: string;
+};
 type FederationBroadcaster = {
   broadcastMessageToFederations: (
     message: FederationFrontUpdateBroadcastPayload,
@@ -106,6 +113,62 @@ export class MembersService {
     await federationBroadcaster.broadcastMessageToFederations(
       message,
       targetFederations,
+    );
+  }
+
+  private async notifyFriendFrontUpdate(
+    system: System,
+    memberId: string,
+    frontId: string,
+    event: FrontUpdateEventName,
+  ): Promise<void> {
+    const [outgoingRecipients, incomingRecipients] = await Promise.all([
+      this.prisma.friendship.findMany({
+        where: {
+          userOneId: system.userId,
+          status: FriendshipStatus.ACCEPTED,
+          canReceiveFrontNotifications: true,
+        },
+        select: {
+          userTwoId: true,
+        },
+      }),
+      this.prisma.friendship.findMany({
+        where: {
+          userTwoId: system.userId,
+          status: FriendshipStatus.ACCEPTED,
+          notifyMeOnFriendFrontChange: true,
+        },
+        select: {
+          userOneId: true,
+        },
+      }),
+    ]);
+
+    const recipientIds = new Set<string>([
+      ...outgoingRecipients.map((friendship) => friendship.userTwoId),
+      ...incomingRecipients.map((friendship) => friendship.userOneId),
+    ]);
+
+    if (recipientIds.size === 0) {
+      return;
+    }
+
+    const payload: FriendFrontUpdatePayload = {
+      event,
+      timestamp: Date.now(),
+      systemId: system.id,
+      memberId,
+      frontId,
+    };
+
+    await Promise.all(
+      [...recipientIds].map((userId) =>
+        this.redisService.publish(
+          `user:${userId}:frontChanges`,
+          JSON.stringify({ event, data: payload }),
+        ),
+      ),
     );
   }
 
@@ -500,6 +563,13 @@ export class MembersService {
       'FRONT_SESSION_STARTED',
     );
 
+    await this.notifyFriendFrontUpdate(
+      system,
+      memberId,
+      frontSession.id,
+      'FRONT_SESSION_STARTED',
+    );
+
     return frontSession;
   }
 
@@ -549,6 +619,13 @@ export class MembersService {
     );
 
     await this.notifyFederatedFrontUpdate(
+      system,
+      session.memberId,
+      sessionId,
+      'FRONT_SESSION_ENDED',
+    );
+
+    await this.notifyFriendFrontUpdate(
       system,
       session.memberId,
       sessionId,

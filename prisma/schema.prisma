@@ -306,6 +306,10 @@ model Friendship {
   status    FriendshipStatus @default(PENDING)
   createdAt DateTime         @default(now())
   type      FriendshipType   @default(FRIENDS)
+  canViewFront                     Boolean @default(false)
+  canReceiveFrontNotifications     Boolean @default(false)
+  canViewSharedMembers             Boolean @default(false)
+  notifyMeOnFriendFrontChange      Boolean @default(false)
 
   // sender
   userOneId String

@@ -4,6 +4,7 @@ import {
   Delete,
   Get,
   Param,
+  Patch,
   Post,
   UseGuards,
   Version,
@@ -14,6 +15,8 @@ import { CurrentUser } from 'src/decorators/current-user.decorator';
 import type { User } from '@prisma/client';
 import { SendRequestDto } from './dto/sendRequest.dto';
 import { UpdateFriendshipTypeDto } from './dto/updateType.dto';
+import { UpdateFriendshipPermissionsDto } from './dto/updatePermissions.dto';
+import type { FriendSystemView } from './friendship.service';
 
 @Controller('friendship')
 export class FriendshipController {
@@ -22,20 +25,20 @@ export class FriendshipController {
   @Post('request')
   @Version('1')
   @UseGuards(AuthGuard)
-  async sendFriendRequest(
+  sendFriendRequest(
     @CurrentUser() user: User,
     @Body() dto: SendRequestDto,
-  ) {
+  ): ReturnType<FriendshipService['sendFriendRequest']> {
     return this.friendshipService.sendFriendRequest(user, dto);
   }
 
   @Post('respond')
   @Version('1')
   @UseGuards(AuthGuard)
-  async respondToFriendRequest(
+  respondToFriendRequest(
     @CurrentUser() user: User,
     @Body() dto: { requestId: string; accept: boolean },
-  ) {
+  ): ReturnType<FriendshipService['respondToFriendRequest']> {
     return this.friendshipService.respondToFriendRequest(
       user,
       dto.requestId,
@@ -46,32 +49,65 @@ export class FriendshipController {
   @Get('requests/sent')
   @Version('1')
   @UseGuards(AuthGuard)
-  async getFriendRequests(@CurrentUser() user: User) {
+  getFriendRequests(
+    @CurrentUser() user: User,
+  ): ReturnType<FriendshipService['getSentFriendRequests']> {
     return this.friendshipService.getSentFriendRequests(user);
   }
 
   @Get('requests/received')
   @Version('1')
   @UseGuards(AuthGuard)
-  async getReceivedFriendRequests(@CurrentUser() user: User) {
+  getReceivedFriendRequests(
+    @CurrentUser() user: User,
+  ): ReturnType<FriendshipService['getReceivedFriendRequests']> {
     return this.friendshipService.getReceivedFriendRequests(user);
   }
 
   @Get('list')
   @Version('1')
   @UseGuards(AuthGuard)
-  async getFriendsList(@CurrentUser() user: User) {
+  getFriendsList(
+    @CurrentUser() user: User,
+  ): ReturnType<FriendshipService['getFriends']> {
     return this.friendshipService.getFriends(user);
+  }
+
+  @Get(':friendId/system')
+  @Version('1')
+  @UseGuards(AuthGuard)
+  getFriendSystem(
+    @CurrentUser() user: User,
+    @Param('friendId') friendId: string,
+  ): Promise<FriendSystemView> {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-return,@typescript-eslint/no-unsafe-call
+    return this.friendshipService.getFriendSystem(user, friendId);
+  }
+
+  @Patch(':friendId/permissions')
+  @Version('1')
+  @UseGuards(AuthGuard)
+  updateFriendshipPermissions(
+    @CurrentUser() user: User,
+    @Param('friendId') friendId: string,
+    @Body() dto: UpdateFriendshipPermissionsDto,
+  ): ReturnType<FriendshipService['updateFriendshipPermissions']> {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+    return this.friendshipService.updateFriendshipPermissions(
+      user,
+      friendId,
+      dto,
+    );
   }
 
   @Post(':id/update')
   @Version('1')
   @UseGuards(AuthGuard)
-  async updateFriendshipType(
+  updateFriendshipType(
     @CurrentUser() user: User,
     @Body() dto: UpdateFriendshipTypeDto,
     @Param('id') friendshipId: string,
-  ) {
+  ): ReturnType<FriendshipService['updateFriendshipType']> {
     return this.friendshipService.updateFriendshipType(
       user,
       friendshipId,
@@ -82,7 +118,10 @@ export class FriendshipController {
   @Delete(':id')
   @Version('1')
   @UseGuards(AuthGuard)
-  async removeFriend(@CurrentUser() user: User, @Param('id') friendId: string) {
+  removeFriend(
+    @CurrentUser() user: User,
+    @Param('id') friendId: string,
+  ): ReturnType<FriendshipService['thoughtWeWereFriends']> {
     return this.friendshipService.thoughtWeWereFriends(user, friendId);
   }
 }

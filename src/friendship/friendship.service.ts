@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  NotFoundException,
   Injectable,
   Inject,
   forwardRef,
@@ -7,6 +8,7 @@ import {
 import {
   FriendshipStatus,
   FriendshipType,
+  type System,
   type User as UserType,
 } from '@prisma/client';
 import {
@@ -21,6 +23,33 @@ import { REDIS_EVENTS } from 'src/utils/constants';
 import errorCodes from 'src/utils/errorCodes';
 import { SendRequestDto } from './dto/sendRequest.dto';
 import { FederationService } from 'src/federation/federation.service';
+import type { MemberWithGroups } from 'src/system/members/members.service';
+
+export type FriendshipPermissions = {
+  canViewFront: boolean;
+  canReceiveFrontNotifications: boolean;
+  canViewSharedMembers: boolean;
+  notifyMeOnFriendFrontChange: boolean;
+};
+
+type FriendshipWithPermissions = FriendshipPermissions & {
+  id: string;
+  userOneId: string;
+  userTwoId: string;
+  status: FriendshipStatus;
+};
+
+export type FriendSystemView = {
+  id: string;
+  customName: string | null;
+  avatarUrl: string | null;
+  description: string | null;
+  color: string | null;
+  frontPrivacy: System['frontPrivacy'];
+  permissions: Omit<FriendshipPermissions, 'notifyMeOnFriendFrontChange'>;
+  frontMember: MemberWithGroups | null;
+  members: MemberWithGroups[];
+};
 
 @Injectable()
 export class FriendshipService {
@@ -229,6 +258,24 @@ export class FriendshipService {
           { userTwoId: user.id, status: FriendshipStatus.ACCEPTED },
         ],
       },
+      include: {
+        userOne: {
+          select: {
+            id: true,
+            username: true,
+            system: true,
+            isSystem: true,
+          },
+        },
+        userTwo: {
+          select: {
+            id: true,
+            username: true,
+            system: true,
+            isSystem: true,
+          },
+        },
+      },
     });
     const friendIds = friendships.map((f) =>
       f.userOneId === user.id ? f.userTwoId : f.userOneId,
@@ -237,6 +284,120 @@ export class FriendshipService {
       where: { id: { in: friendIds } },
       select: { id: true, username: true, system: true, isSystem: true },
     });
+  }
+
+  async updateFriendshipPermissions(
+    user: UserType,
+    friendId: string,
+    permissions: Partial<FriendshipPermissions>,
+  ): Promise<Record<string, unknown> | null> {
+    const friendship = await this.prisma.friendship.findFirst({
+      where: {
+        userOneId: user.id,
+        userTwoId: friendId,
+        status: FriendshipStatus.ACCEPTED,
+      },
+    });
+
+    if (!friendship) {
+      throw new BadRequestException(errorCodes.FRIENDSHIP_NOT_FOUND);
+    }
+
+    const data: Record<string, boolean> = {};
+    if (permissions.canViewFront !== undefined) {
+      data.canViewFront = permissions.canViewFront;
+    }
+    if (permissions.canReceiveFrontNotifications !== undefined) {
+      data.canReceiveFrontNotifications =
+        permissions.canReceiveFrontNotifications;
+    }
+    if (permissions.canViewSharedMembers !== undefined) {
+      data.canViewSharedMembers = permissions.canViewSharedMembers;
+    }
+    if (permissions.notifyMeOnFriendFrontChange !== undefined) {
+      data.notifyMeOnFriendFrontChange =
+        permissions.notifyMeOnFriendFrontChange;
+    }
+
+    await this.prisma.friendship.update({
+      where: { id: friendship.id },
+      data: data as never,
+    });
+
+    return this.prisma.friendship.findUnique({ where: { id: friendship.id } });
+  }
+
+  async getFriendSystem(
+    user: UserType,
+    friendId: string,
+  ): Promise<FriendSystemView> {
+    const friendship = (await this.prisma.friendship.findFirst({
+      where: {
+        userOneId: friendId,
+        userTwoId: user.id,
+        status: FriendshipStatus.ACCEPTED,
+      },
+    })) as FriendshipWithPermissions | null;
+
+    if (!friendship) {
+      throw new BadRequestException(errorCodes.FRIENDSHIP_NOT_FOUND);
+    }
+
+    const system = await this.prisma.system.findUnique({
+      where: { userId: friendId },
+    });
+
+    if (!system) {
+      throw new NotFoundException(errorCodes.USER_HAS_NO_SYSTEM);
+    }
+
+    const [frontSession, members] = await Promise.all([
+      friendship.canViewFront
+        ? this.prisma.frontSession.findFirst({
+            where: {
+              systemId: system.id,
+              endTime: null,
+            },
+            orderBy: {
+              startTime: 'asc',
+            },
+            include: {
+              member: {
+                include: {
+                  groups: true,
+                },
+              },
+            },
+          })
+        : Promise.resolve(null),
+      friendship.canViewSharedMembers
+        ? this.prisma.member.findMany({
+            where: {
+              systemId: system.id,
+            },
+            orderBy: [{ name: 'asc' }, { id: 'asc' }],
+            include: {
+              groups: true,
+            },
+          })
+        : Promise.resolve([] as MemberWithGroups[]),
+    ]);
+
+    return {
+      id: system.id,
+      customName: system.customName,
+      avatarUrl: system.avatarUrl,
+      description: system.description,
+      color: system.color,
+      frontPrivacy: system.frontPrivacy,
+      permissions: {
+        canViewFront: friendship.canViewFront,
+        canReceiveFrontNotifications: friendship.canReceiveFrontNotifications,
+        canViewSharedMembers: friendship.canViewSharedMembers,
+      },
+      frontMember: frontSession?.member ?? null,
+      members,
+    };
   }
 
   async updateFriendshipType(

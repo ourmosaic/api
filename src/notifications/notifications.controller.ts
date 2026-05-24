@@ -80,6 +80,7 @@ export class NotificationsController {
 
     const streams = [
       this.topicStream(`user:${userId}:friendRequests`, SSE_TOPICS.FRIENDSHIP),
+      this.topicStream(`user:${userId}:frontChanges`, SSE_TOPICS.FRONT_CHANGES),
       this.topicStream(
         'federation:frontSessions',
         SSE_TOPICS.FEDERATION_FRONT_SESSIONS,
@@ -107,6 +108,7 @@ export class NotificationsController {
 
     const streams = [
       this.topicStream(`user:${userId}:friendRequests`, SSE_TOPICS.FRIENDSHIP),
+      this.topicStream(`user:${userId}:frontChanges`, SSE_TOPICS.FRONT_CHANGES),
       this.topicStream(`user:${userId}:imports`, SSE_TOPICS.IMPORT),
     ];
 
@@ -123,6 +125,20 @@ export class NotificationsController {
     }
     return this.mergeStreams('notifications:friendship', [
       this.notificationsService.streamChannel(`user:${userId}:friendRequests`),
+    ]);
+  }
+
+  @Sse('front-changes')
+  @Version('1')
+  streamFrontChangeNotifications(
+    @CurrentUser('id') userId?: string,
+  ): Observable<MessageEvent> {
+    if (!userId) {
+      throw new UnauthorizedException('Missing user context');
+    }
+
+    return this.mergeStreams('notifications:front-changes', [
+      this.topicStream(`user:${userId}:frontChanges`, SSE_TOPICS.FRONT_CHANGES),
     ]);
   }
 

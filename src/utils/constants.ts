@@ -35,6 +35,7 @@ export const REDIS_EVENTS = {
 export const SSE_TOPICS = {
   FRIENDSHIP: 'friendship',
   FRONT_SESSIONS: 'front-sessions',
+  FRONT_CHANGES: 'front-changes',
   FEDERATION_FRONT_SESSIONS: 'federation-front-sessions',
   IMPORT: 'import',
 };
