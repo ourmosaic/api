@@ -50,6 +50,12 @@ enum ReportType {
   MEMBER
 }
 
+enum BlockType {
+  SYSTEM
+  USER
+  MEMBER
+}
+
 model Report {
   id          String     @id @default(uuid())
   type        ReportType
@@ -96,6 +102,42 @@ model ReportMember {
   member Member @relation(fields: [memberId], references: [id], onDelete: Cascade)
 }
 
+model BlockedUser {
+  id        String   @id @default(uuid())
+  blockerId String
+  blocker   User     @relation("UserBlocker", fields: [blockerId], references: [id], onDelete: Cascade)
+  blockedId String
+  blocked   User     @relation("UserBlocked", fields: [blockedId], references: [id], onDelete: Cascade)
+  reason    String?
+  createdAt DateTime @default(now())
+
+  @@unique([blockerId, blockedId])
+}
+
+model BlockedMember {
+  id        String   @id @default(uuid())
+  blockerId String
+  blocker   User     @relation("MemberBlocker", fields: [blockerId], references: [id], onDelete: Cascade)
+  blockedId String
+  blocked   Member   @relation("MemberBlocked", fields: [blockedId], references: [id], onDelete: Cascade)
+  reason    String?
+  createdAt DateTime @default(now())
+
+  @@unique([blockerId, blockedId])
+}
+
+model BlockedSystem {
+  id        String   @id @default(uuid())
+  blockerId String
+  blocker   User     @relation("SystemBlocker", fields: [blockerId], references: [id], onDelete: Cascade)
+  blockedId String
+  blocked   System   @relation("SystemBlocked", fields: [blockedId], references: [id], onDelete: Cascade)
+  reason    String?
+  createdAt DateTime @default(now())
+
+  @@unique([blockerId, blockedId])
+}
+
 model User {
   id          String   @id @default(uuid())
   username    String   @unique
@@ -115,6 +157,12 @@ model User {
   receivedFriendRequests Friendship[] @relation("UserTwo")
   ReportUser             ReportUser[]
   Report                 Report[]
+
+  // Blocages
+  usersBlocked      BlockedUser[] @relation("UserBlocker")
+  blockedByUsers    BlockedUser[] @relation("UserBlocked")
+  membersBlocked    BlockedMember[] @relation("MemberBlocker")
+  systemsBlocked    BlockedSystem[] @relation("SystemBlocker")
 
   @@unique([distantId, domain])
 }
@@ -141,6 +189,7 @@ model System {
 
   channelCategories ChannelCategory[]
   ReportSystem      ReportSystem[]
+  blockedByUsers    BlockedSystem[] @relation("SystemBlocked")
 }
 
 model Member {
@@ -170,6 +219,7 @@ model Member {
   boardMessagesSent     BoardMessage[] @relation("BoardMessageFrom")
   boardMessagesReceived BoardMessage[] @relation("BoardMessageTo")
   ReportMember          ReportMember[]
+  blockedByUsers        BlockedMember[] @relation("MemberBlocked")
 
   @@unique([distantId, domain])
 }
