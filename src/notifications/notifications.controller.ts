@@ -82,6 +82,10 @@ export class NotificationsController {
       this.topicStream(`user:${userId}:friendRequests`, SSE_TOPICS.FRIENDSHIP),
       this.topicStream(`user:${userId}:frontChanges`, SSE_TOPICS.FRONT_CHANGES),
       this.topicStream(
+        `user:${userId}:friendFrontSessions`,
+        SSE_TOPICS.FRIEND_FRONT_SESSIONS,
+      ),
+      this.topicStream(
         'federation:frontSessions',
         SSE_TOPICS.FEDERATION_FRONT_SESSIONS,
       ),

@@ -171,7 +171,38 @@ export class MembersService {
       return;
     }
 
-    const payload: FriendFrontUpdatePayload = {
+    const [activeSessions, friendUser] = await Promise.all([
+      this.prisma.frontSession.findMany({
+        where: { systemId: system.id, endTime: null },
+        include: { member: { select: { id: true, name: true } } },
+        orderBy: { startTime: 'asc' },
+      }),
+      this.prisma.user.findUnique({
+        where: { id: system.userId },
+        select: { username: true },
+      }),
+    ]);
+
+    const activeMemberList = activeSessions.map((s) => ({
+      memberId: s.member.id,
+      name: s.member.name,
+    }));
+
+    const friendDisplay = {
+      userId: system.userId,
+      username: friendUser?.username,
+      systemId: system.id,
+      customName: system.customName,
+    };
+
+    const friendFrontSessionsPayload = {
+      event,
+      timestamp: Date.now(),
+      friend: friendDisplay,
+      activeMembers: activeMemberList,
+    };
+
+    const simplePayload: FriendFrontUpdatePayload = {
       event,
       timestamp: Date.now(),
       systemId: system.id,
@@ -181,51 +212,16 @@ export class MembersService {
 
     await Promise.all(
       [...recipientIds].map((userId) =>
-        this.redisService.publish(
-          `user:${userId}:frontChanges`,
-          JSON.stringify({ event, data: payload }),
-        ),
-      ),
-    );
-
-    if (recipientIds.size === 0) return;
-
-    const activeSessions = await this.prisma.frontSession.findMany({
-      where: { systemId: system.id, endTime: null },
-      include: { member: { select: { id: true, name: true } } },
-      orderBy: { startTime: 'asc' },
-    });
-
-    const activeMemberList = activeSessions.map((s) => ({
-      memberId: s.member.id,
-      name: s.member.name,
-    }));
-
-    const friendUser = await this.prisma.user.findUnique({
-      where: { id: system.userId },
-      select: { username: true },
-    });
-
-    const friendDisplay = {
-      userId: system.userId,
-      username: friendUser?.username,
-      systemId: system.id,
-      customName: system.customName,
-    };
-
-    const friendPayload = {
-      event,
-      timestamp: Date.now(),
-      friend: friendDisplay,
-      activeMembers: activeMemberList,
-    };
-
-    await Promise.all(
-      [...recipientIds].map((userId) =>
-        this.redisService.publish(
-          `user:${userId}:friendFrontSessions`,
-          JSON.stringify(friendPayload),
-        ),
+        Promise.all([
+          this.redisService.publish(
+            `user:${userId}:friendFrontSessions`,
+            JSON.stringify(friendFrontSessionsPayload),
+          ),
+          this.redisService.publish(
+            `user:${userId}:frontChanges`,
+            JSON.stringify({ event, data: simplePayload }),
+          ),
+        ]),
       ),
     );
   }
