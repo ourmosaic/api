@@ -1,12 +1,21 @@
-import { Injectable, BadRequestException } from '@nestjs/common';
+import { Injectable, BadRequestException, Inject, forwardRef } from '@nestjs/common';
 import { ReportType, BlockType, User } from '@prisma/client';
 import { ReportDto } from './dto/report.dto';
 import { BlockDto, UnblockDto } from './dto/block.dto';
 import { PrismaService } from '../prisma/prisma.service';
+import { FederationService } from '../federation/federation.service';
+import {
+  FederationMessageType,
+  FriendRejectMessage,
+} from '../federation/federationDef';
 
 @Injectable()
 export class SafetyService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    @Inject(forwardRef(() => FederationService))
+    private readonly federationService: FederationService,
+  ) {}
 
   async report(user: User, reportDto: ReportDto) {
     switch (reportDto.type) {
@@ -184,13 +193,77 @@ export class SafetyService {
           throw new BadRequestException('System already blocked');
         }
 
-        return this.prisma.blockedSystem.create({
+        // Bloquer le système
+        const blockedSystem = await this.prisma.blockedSystem.create({
           data: {
             blockerId: user.id,
             blockedId: blockDto.targetId,
             reason: blockDto.reason,
           },
         });
+
+        // Bloquer aussi l'utilisateur propriétaire du système
+        const systemOwner = system.userId;
+        const existingUserBlock = await this.prisma.blockedUser.findUnique({
+          where: {
+            blockerId_blockedId: {
+              blockerId: user.id,
+              blockedId: systemOwner,
+            },
+          },
+        });
+
+        if (!existingUserBlock) {
+          await this.prisma.blockedUser.create({
+            data: {
+              blockerId: user.id,
+              blockedId: systemOwner,
+              reason: blockDto.reason ? `Auto-blocked with system: ${blockDto.reason}` : 'Auto-blocked with system',
+            },
+          });
+        }
+
+        // Retirer l'amitié si elle existe (dans les deux directions)
+        const friendships = await this.prisma.friendship.findMany({
+          where: {
+            OR: [
+              {
+                userOneId: user.id,
+                userTwoId: systemOwner,
+              },
+              {
+                userOneId: systemOwner,
+                userTwoId: user.id,
+              },
+            ],
+          },
+          include: {
+            userOne: true,
+            userTwo: true,
+          },
+        });
+
+        for (const friendship of friendships) {
+          await this.prisma.friendship.delete({
+            where: { id: friendship.id },
+          });
+
+          // Notifier la fédération si l'ami est fédéré
+          const otherUser = friendship.userOneId === user.id ? friendship.userTwo : friendship.userOne;
+          if (otherUser.isFederated && otherUser.domain) {
+            const message: FriendRejectMessage = {
+              type: FederationMessageType.FRIEND_REJECT,
+              timestamp: Date.now(),
+              targetFederation: otherUser.domain,
+              distantId: otherUser.distantId || '',
+              senderUsername: user.username,
+              recipientUsername: otherUser.username,
+            };
+            await this.federationService.enqueueMessage(message);
+          }
+        }
+
+        return blockedSystem;
       }
 
       default:
@@ -256,11 +329,44 @@ export class SafetyService {
           throw new BadRequestException('System not blocked');
         }
 
-        return this.prisma.blockedSystem.delete({
+        // Récupérer le système pour trouver son propriétaire
+        const system = await this.prisma.system.findUnique({
+          where: {
+            id: unblockDto.targetId,
+          },
+        });
+
+        const systemOwner = system?.userId;
+
+        // Supprimer le blocage du système
+        await this.prisma.blockedSystem.delete({
           where: {
             id: blocked.id,
           },
         });
+
+        // Débloquer aussi l'utilisateur propriétaire du système (si le blocage auto a été créé)
+        if (systemOwner) {
+          const userBlock = await this.prisma.blockedUser.findUnique({
+            where: {
+              blockerId_blockedId: {
+                blockerId: user.id,
+                blockedId: systemOwner,
+              },
+            },
+          });
+
+          // Vérifier si le blocage a été créé automatiquement (contient "Auto-blocked with system")
+          if (userBlock && userBlock.reason?.includes('Auto-blocked with system')) {
+            await this.prisma.blockedUser.delete({
+              where: {
+                id: userBlock.id,
+              },
+            });
+          }
+        }
+
+        return blocked;
       }
 
       default:
