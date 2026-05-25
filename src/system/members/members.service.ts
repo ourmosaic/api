@@ -79,9 +79,11 @@ export class MembersService {
           domain: { not: null },
         },
       },
-      select: {
+      include: {
         userTwo: {
-          select: { domain: true },
+          select: {
+            domain: true,
+          },
         },
       },
     });
@@ -89,9 +91,12 @@ export class MembersService {
     const targetFederations = Array.from(
       new Set(
         authorizedFriendships
+          .filter((f) => f.canReceiveFrontNotifications)
           .map((friendship) => friendship.userTwo.domain)
           .filter((domain): domain is string =>
-            Boolean(domain && domain.trim().length > 0),
+            Boolean(
+              domain && typeof domain === 'string' && domain.trim().length > 0,
+            ),
           ),
       ),
     );
@@ -145,10 +150,17 @@ export class MembersService {
       }),
     ]);
 
-    const recipientIds = new Set<string>([
-      ...outgoingRecipients.map((friendship) => friendship.userTwoId),
-      ...incomingRecipients.map((friendship) => friendship.userOneId),
-    ]);
+    const outgoingIds = new Set<string>(
+      outgoingRecipients.map((friendship) => friendship.userTwoId),
+    );
+    const incomingIds = new Set<string>(
+      incomingRecipients.map((friendship) => friendship.userOneId),
+    );
+
+    // recipients who are both allowed by the owner and have enabled receiving from this owner
+    const recipientIds = new Set<string>(
+      [...outgoingIds].filter((id) => incomingIds.has(id)),
+    );
 
     if (recipientIds.size === 0) {
       return;
@@ -162,11 +174,54 @@ export class MembersService {
       frontId,
     };
 
+    // publish the simple event (for existing channels)
     await Promise.all(
       [...recipientIds].map((userId) =>
         this.redisService.publish(
           `user:${userId}:frontChanges`,
           JSON.stringify({ event, data: payload }),
+        ),
+      ),
+    );
+
+    if (recipientIds.size === 0) return;
+
+    // Build friend-front-sessions payload: include friend's display name and list of active member names
+    const activeSessions = await this.prisma.frontSession.findMany({
+      where: { systemId: system.id, endTime: null },
+      include: { member: { select: { id: true, name: true } } },
+      orderBy: { startTime: 'asc' },
+    });
+
+    const activeMemberList = activeSessions.map((s) => ({
+      memberId: s.member.id,
+      name: s.member.name,
+    }));
+
+    const friendUser = await this.prisma.user.findUnique({
+      where: { id: system.userId },
+      select: { username: true },
+    });
+
+    const friendDisplay = {
+      userId: system.userId,
+      username: friendUser?.username,
+      systemId: system.id,
+      customName: system.customName,
+    };
+
+    const friendPayload = {
+      event,
+      timestamp: Date.now(),
+      friend: friendDisplay,
+      activeMembers: activeMemberList,
+    };
+
+    await Promise.all(
+      [...recipientIds].map((userId) =>
+        this.redisService.publish(
+          `user:${userId}:friendFrontSessions`,
+          JSON.stringify(friendPayload),
         ),
       ),
     );

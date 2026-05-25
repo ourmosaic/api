@@ -17,6 +17,7 @@ import {
   FriendAcceptMessage,
   FriendRejectMessage,
   FriendRequestMessage,
+  type FriendPermissionsMessage,
 } from 'src/federation/federationDef';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { RedisService } from 'src/redis/redis.service';
@@ -32,6 +33,8 @@ export type FriendshipPermissions = {
   canViewSharedMembers: boolean;
   notifyMeOnFriendFrontChange: boolean;
 };
+
+type FriendshipPermissionUpdate = Partial<FriendshipPermissions>;
 
 type FriendshipWithPermissions = FriendshipPermissions & {
   id: string;
@@ -360,7 +363,7 @@ export class FriendshipService {
   async updateFriendshipPermissions(
     user: UserType,
     friendId: string,
-    permissions: Partial<FriendshipPermissions>,
+    permissions: FriendshipPermissionUpdate,
   ): Promise<Record<string, unknown> | null> {
     const friendship = await this.prisma.friendship.findFirst({
       where: {
@@ -374,7 +377,7 @@ export class FriendshipService {
       throw new BadRequestException(errorCodes.FRIENDSHIP_NOT_FOUND);
     }
 
-    const data: Record<string, boolean> = {};
+    const data: FriendshipPermissionUpdate = {};
     if (permissions.canViewFront !== undefined) {
       data.canViewFront = permissions.canViewFront;
     }
@@ -395,7 +398,27 @@ export class FriendshipService {
       data: data as never,
     });
 
-    return this.prisma.friendship.findUnique({ where: { id: friendship.id } });
+    const updated = await this.prisma.friendship.findUnique({
+      where: { id: friendship.id },
+    });
+
+    const friend = await this.prisma.user.findUnique({
+      where: { id: friendId },
+    });
+    if (friend?.isFederated && friend.domain) {
+      const message: FriendPermissionsMessage = {
+        type: FederationMessageType.FRIENDSHIP_PERMISSIONS,
+        timestamp: Date.now(),
+        targetFederation: friend.domain,
+        distantId: user.id,
+        senderUsername: user.username,
+        recipientUsername: friend.username,
+        permissions: data,
+      };
+      await this.federationService.enqueueMessage(message);
+    }
+
+    return updated;
   }
 
   async getFriendSystem(

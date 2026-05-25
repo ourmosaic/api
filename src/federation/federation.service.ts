@@ -1,4 +1,10 @@
-import { BadRequestException, forwardRef, Inject, Injectable, Logger } from '@nestjs/common';
+import {
+  BadRequestException,
+  forwardRef,
+  Inject,
+  Injectable,
+  Logger,
+} from '@nestjs/common';
 import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
@@ -12,6 +18,8 @@ import {
   type AnyFederationMessage,
   FederationMessageType,
   FriendRequestMessage,
+  type FriendPermissionsMessage,
+  type FriendshipPermissionFlags,
   FrontUpdateEvent,
   MessagesBefore,
 } from './federationDef';
@@ -360,6 +368,83 @@ export class FederationService {
           `Processed federated front update ${frontUpdateMessage.event} from ${senderFederation}`,
         );
         return { message: 'Front update processed successfully' };
+      }
+      case FederationMessageType.FRIENDSHIP_PERMISSIONS: {
+        const permMessage: FriendPermissionsMessage = message;
+        const recipientUser = await this.prisma.user.findFirst({
+          where: { username: permMessage.recipientUsername },
+        });
+        if (!recipientUser) {
+          throw new BadRequestException('Recipient user not found');
+        }
+
+        const senderUser = await this.prisma.user.findFirst({
+          where: permMessage.distantId
+            ? {
+                isFederated: true,
+                domain: senderFederation,
+                distantId: permMessage.distantId,
+              }
+            : {
+                username: permMessage.senderUsername,
+                isFederated: true,
+                domain: senderFederation,
+              },
+        });
+
+        if (!senderUser) {
+          throw new BadRequestException('Sender user not found');
+        }
+
+        const friendship = await this.prisma.friendship.findFirst({
+          where: {
+            userOneId: senderUser.id,
+            userTwoId: recipientUser.id,
+            status: FriendshipStatus.ACCEPTED,
+          },
+        });
+
+        if (!friendship) {
+          throw new BadRequestException('Friendship not found');
+        }
+
+        const updateData: FriendshipPermissionFlags = {};
+        if (permMessage.permissions.canViewFront !== undefined) {
+          updateData.canViewFront = permMessage.permissions.canViewFront;
+        }
+        if (
+          permMessage.permissions.canReceiveFrontNotifications !== undefined
+        ) {
+          updateData.canReceiveFrontNotifications =
+            permMessage.permissions.canReceiveFrontNotifications;
+        }
+        if (permMessage.permissions.canViewSharedMembers !== undefined) {
+          updateData.canViewSharedMembers =
+            permMessage.permissions.canViewSharedMembers;
+        }
+        if (permMessage.permissions.notifyMeOnFriendFrontChange !== undefined) {
+          updateData.notifyMeOnFriendFrontChange =
+            permMessage.permissions.notifyMeOnFriendFrontChange;
+        }
+
+        if (Object.keys(updateData).length === 0) {
+          throw new BadRequestException('No permissions provided');
+        }
+
+        await this.prisma.friendship.update({
+          where: { id: friendship.id },
+          data: updateData as never,
+        });
+
+        await this.redis.publish(
+          `user:${recipientUser.id}:friendRequests`,
+          stringify({
+            type: REDIS_EVENTS.FRIENDSHIP_UPDATED,
+            username: senderUser.username,
+          }),
+        );
+
+        return { message: 'Friendship permissions processed successfully' };
       }
       case FederationMessageType.FRIEND_REQUEST: {
         const friendRequestMessage: FriendRequestMessage = message;

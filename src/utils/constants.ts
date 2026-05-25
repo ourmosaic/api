@@ -36,6 +36,7 @@ export const SSE_TOPICS = {
   FRIENDSHIP: 'friendship',
   FRONT_SESSIONS: 'front-sessions',
   FRONT_CHANGES: 'front-changes',
+  FRIEND_FRONT_SESSIONS: 'friend-front-sessions',
   FEDERATION_FRONT_SESSIONS: 'federation-front-sessions',
   IMPORT: 'import',
 };

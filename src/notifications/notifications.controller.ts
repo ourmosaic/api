@@ -142,6 +142,23 @@ export class NotificationsController {
     ]);
   }
 
+  @Sse('friend-front-sessions')
+  @Version('1')
+  streamFriendFrontSessions(
+    @CurrentUser('id') userId?: string,
+  ): Observable<MessageEvent> {
+    if (!userId) {
+      throw new UnauthorizedException('Missing user context');
+    }
+
+    return this.mergeStreams('notifications:friend-front-sessions', [
+      this.topicStream(
+        `user:${userId}:friendFrontSessions`,
+        SSE_TOPICS.FRIEND_FRONT_SESSIONS,
+      ),
+    ]);
+  }
+
   @Sse('front-sessions')
   @Version('1')
   @UseInterceptors(SystemInterceptor)
