@@ -127,7 +127,12 @@ export class MembersService {
     frontId: string,
     event: FrontUpdateEventName,
   ): Promise<void> {
-    const [outgoingRecipients, incomingRecipients] = await Promise.all([
+    // Find all friends who should receive notifications about this system's front changes
+    // Two cases:
+    // 1. Friends where THIS system is userOne and has enabled notifications (userTwo can receive)
+    // 2. Friends where THIS system is userTwo and the friend has enabled notifications
+    const [outgoingFriendships, incomingFriendships] = await Promise.all([
+      // Case 1: Friends where we're userOne and we've given them permission to receive our notifications
       this.prisma.friendship.findMany({
         where: {
           userOneId: system.userId,
@@ -150,17 +155,17 @@ export class MembersService {
       }),
     ]);
 
-    const outgoingIds = new Set<string>(
-      outgoingRecipients.map((friendship) => friendship.userTwoId),
+    const outgoingRecipients = new Set<string>(
+      outgoingFriendships.map((f) => f.userTwoId),
     );
-    const incomingIds = new Set<string>(
-      incomingRecipients.map((friendship) => friendship.userOneId),
+    const incomingRecipients = new Set<string>(
+      incomingFriendships.map((f) => f.userOneId),
     );
 
-    // recipients who are both allowed by the owner and have enabled receiving from this owner
-    const recipientIds = new Set<string>(
-      [...outgoingIds].filter((id) => incomingIds.has(id)),
-    );
+    const recipientIds = new Set<string>([
+      ...outgoingRecipients,
+      ...incomingRecipients,
+    ]);
 
     if (recipientIds.size === 0) {
       return;
@@ -174,7 +179,6 @@ export class MembersService {
       frontId,
     };
 
-    // publish the simple event (for existing channels)
     await Promise.all(
       [...recipientIds].map((userId) =>
         this.redisService.publish(
@@ -186,7 +190,6 @@ export class MembersService {
 
     if (recipientIds.size === 0) return;
 
-    // Build friend-front-sessions payload: include friend's display name and list of active member names
     const activeSessions = await this.prisma.frontSession.findMany({
       where: { systemId: system.id, endTime: null },
       include: { member: { select: { id: true, name: true } } },
