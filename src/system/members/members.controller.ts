@@ -302,6 +302,21 @@ export class MembersController {
     return this.membersService.deleteMemberGroups(memberId, system, groupIds);
   }
 
+  @Delete(':id')
+  @Version('1')
+  @UseGuards(AuthGuard)
+  @UseInterceptors(SystemInterceptor)
+  @ApiOkResponse({
+    description: 'Member deleted successfully',
+  })
+  @ApiForbiddenResponse({ description: 'Forbidden.' })
+  async deleteMember(
+    @Sys() system: System,
+    @Param('id') memberId: string,
+  ): Promise<void> {
+    await this.membersService.deleteMember(memberId, system);
+  }
+
   @Post(':id/avatar')
   @Version('1')
   @UseGuards(AuthGuard)

@@ -243,6 +243,24 @@ export class MembersService {
     });
   }
 
+  async deleteMember(memberId: string, system: System): Promise<void> {
+    const member = await this.prisma.member.findUnique({
+      where: {
+        id: memberId,
+      },
+    });
+
+    if (!member || member.systemId !== system.id) {
+      throw new NotFoundException(errorCodes.MEMBER_NOT_FOUND_IN_SYSTEM);
+    }
+
+    await this.prisma.member.delete({
+      where: {
+        id: memberId,
+      },
+    });
+  }
+
   async createMember(system: System, dto: CreateMemberDto): Promise<Member> {
     return this.prisma.member.create({
       data: {
