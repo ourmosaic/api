@@ -270,6 +270,7 @@ export class MembersService {
         role: dto.role,
         systemId: system.id,
         privacy: dto.privacy,
+        inDormancy: dto.inDormancy,
       },
     });
   }
@@ -325,6 +326,7 @@ export class MembersService {
         role: dto.role,
         privacy: dto.privacy,
         color: dto.color,
+        inDormancy: dto.inDormancy,
       },
     });
   }

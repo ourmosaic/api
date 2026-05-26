@@ -1,4 +1,4 @@
-import { IsString, MinLength, IsOptional, IsEnum } from 'class-validator';
+import { IsString, MinLength, IsOptional, IsEnum, IsBoolean } from 'class-validator';
 import errorCodes from 'src/utils/errorCodes';
 
 enum Privacy {
@@ -28,4 +28,8 @@ export class CreateMemberDto {
   @IsOptional()
   @IsEnum(Privacy, { message: errorCodes.INVALID_PRIVACY_SETTING })
   privacy?: Privacy;
+
+  @IsOptional()
+  @IsBoolean()
+  inDormancy?: boolean;
 }

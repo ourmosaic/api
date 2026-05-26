@@ -1,4 +1,4 @@
-import { IsString, MinLength, IsOptional, IsEnum, Matches } from 'class-validator';
+import { IsString, MinLength, IsOptional, IsEnum, Matches, IsBoolean } from 'class-validator';
 import errorCodes from 'src/utils/errorCodes';
 
 enum Privacy {
@@ -35,4 +35,8 @@ export class UpdateMemberDto {
   @Matches(/^#([0-9A-Fa-f]{3}){1,2}$/, { message: errorCodes.INVALID_COLOR })
   @MinLength(7, { message: errorCodes.INVALID_COLOR })
   color?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  inDormancy?: boolean;
 }
