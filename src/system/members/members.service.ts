@@ -290,7 +290,7 @@ export class MembersService {
       throw new NotFoundException(errorCodes.MEMBER_NOT_FOUND_IN_SYSTEM);
     }
 
-    return await this.prisma.member.update({
+    return this.prisma.member.update({
       where: {
         id: memberId,
       },
@@ -315,7 +315,7 @@ export class MembersService {
       throw new NotFoundException(errorCodes.MEMBER_NOT_FOUND_IN_SYSTEM);
     }
 
-    return await this.prisma.member.update({
+    return this.prisma.member.update({
       where: {
         id: memberId,
       },
