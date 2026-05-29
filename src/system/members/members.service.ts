@@ -1,19 +1,13 @@
-import {
-  BadRequestException,
-  Inject,
-  Injectable,
-  NotFoundException,
-  forwardRef,
-} from '@nestjs/common';
+import { BadRequestException, forwardRef, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { SystemService } from '../system.service';
 import {
   FriendshipStatus,
   FriendshipType,
-  type Member,
-  type System,
   type FrontSession,
+  type Member,
   type MemberOnGroups,
+  type System,
 } from '@prisma/client';
 import { CreateMemberDto } from './dto/createMember.dto';
 import { UpdateMemberDto } from './dto/updateMember.dto';
@@ -522,6 +516,15 @@ export class MembersService {
           );
         }
         return value;
+      case FieldType.DATE: {
+        const dateValue = new Date(value);
+        if (isNaN(dateValue.getTime())) {
+          throw new BadRequestException(
+            errorCodes.INVALID_FIELD_VALUE_FOR_TYPE,
+          );
+        }
+        return dateValue;
+      }
       default:
         throw new BadRequestException(errorCodes.UNKNOWN_FIELD_TYPE);
     }
