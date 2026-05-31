@@ -7,6 +7,7 @@ import { MembersModule } from './members/members.module';
 import { GroupsModule } from './groups/groups.module';
 import { StorageModule } from 'src/storage/storage.module';
 import { OptionalSystemInterceptor } from './optional-system.interceptor';
+import { ChatModule } from './chat/chat.module';
 
 @Module({
   imports: [
@@ -15,6 +16,7 @@ import { OptionalSystemInterceptor } from './optional-system.interceptor';
     forwardRef(() => MembersModule),
     forwardRef(() => GroupsModule),
     StorageModule,
+    ChatModule,
   ],
   providers: [SystemService, OptionalSystemInterceptor],
   controllers: [SystemController],

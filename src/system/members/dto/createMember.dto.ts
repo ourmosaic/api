@@ -9,7 +9,7 @@ enum Privacy {
 
 export class CreateMemberDto {
   @IsString({ message: errorCodes.INVALID_MEMBER_NAME })
-  @MinLength(3, { message: errorCodes.INVALID_MEMBER_NAME })
+  @MinLength(1, { message: errorCodes.INVALID_MEMBER_NAME })
   name: string;
 
   @IsString({ message: errorCodes.INVALID_DESCRIPTION })
