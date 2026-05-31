@@ -56,7 +56,7 @@ export class GroupsController {
   @Version('1')
   @UseGuards(AuthGuard)
   @UseInterceptors(SystemInterceptor)
-  async deleteGroup(@Sys() system: System, @Body('id') groupId: string) {
+  async deleteGroup(@Sys() system: System, @Param('id') groupId: string) {
     return this.groupsService.deleteGroup(system, groupId);
   }
 }
