@@ -83,6 +83,11 @@ export type FriendSystemView = {
   members: FriendVisibleMember[];
 };
 
+const caseInsensitiveUsername = (username: string) => ({
+  equals: username,
+  mode: 'insensitive' as const,
+});
+
 @Injectable()
 export class FriendshipService {
   constructor(
@@ -140,8 +145,8 @@ export class FriendshipService {
         throw new BadRequestException(errorCodes.INVALID_FRIEND_REQUEST);
       }
       if (!dto.federationUrl) {
-        const recipient = await this.prisma.user.findUnique({
-          where: { username: dto.username },
+        const recipient = await this.prisma.user.findFirst({
+          where: { username: caseInsensitiveUsername(dto.username) },
         });
         if (!recipient) {
           throw new BadRequestException(errorCodes.INVALID_FRIEND_REQUEST);

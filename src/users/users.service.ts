@@ -79,7 +79,16 @@ export class UsersService {
         where: {
           id: { not: userId },
           OR: [
-            ...(dto.username !== undefined ? [{ username: dto.username }] : []),
+            ...(dto.username !== undefined
+              ? [
+                  {
+                    username: {
+                      equals: dto.username,
+                      mode: 'insensitive' as const,
+                    },
+                  },
+                ]
+              : []),
             ...(dto.email !== undefined ? [{ email: dto.email }] : []),
           ],
         },

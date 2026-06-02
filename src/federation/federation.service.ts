@@ -36,6 +36,14 @@ import { QueryDto, QueryType } from './dto/query.dto';
 const OUTBOX_REQUEST_TTL_SECONDS = 300;
 const OUTBOX_MAX_MESSAGES = 100;
 
+const caseInsensitiveUsername = (username: string) => ({
+  equals: username,
+  mode: 'insensitive' as const,
+});
+
+const maybeCaseInsensitiveUsername = (username?: string) =>
+  username ? caseInsensitiveUsername(username) : undefined;
+
 @Injectable()
 export class FederationService {
   private publicKey: string;
@@ -372,7 +380,9 @@ export class FederationService {
       case FederationMessageType.FRIENDSHIP_PERMISSIONS: {
         const permMessage: FriendPermissionsMessage = message;
         const recipientUser = await this.prisma.user.findFirst({
-          where: { username: permMessage.recipientUsername },
+          where: {
+            username: caseInsensitiveUsername(permMessage.recipientUsername),
+          },
         });
         if (!recipientUser) {
           throw new BadRequestException('Recipient user not found');
@@ -386,7 +396,7 @@ export class FederationService {
                 distantId: permMessage.distantId,
               }
             : {
-                username: permMessage.senderUsername,
+                username: caseInsensitiveUsername(permMessage.senderUsername),
                 isFederated: true,
                 domain: senderFederation,
               },
@@ -453,7 +463,11 @@ export class FederationService {
         );
         // we need to find the user with the username and create a friend request
         const recipientUser = await this.prisma.user.findFirst({
-          where: { username: friendRequestMessage.recipientUsername },
+          where: {
+            username: caseInsensitiveUsername(
+              friendRequestMessage.recipientUsername,
+            ),
+          },
         });
         if (!recipientUser) {
           this.logger.warn(
@@ -464,7 +478,11 @@ export class FederationService {
           );
         }
         let senderUser = await this.prisma.user.findFirst({
-          where: { username: friendRequestMessage.senderUsername },
+          where: {
+            username: caseInsensitiveUsername(
+              friendRequestMessage.senderUsername,
+            ),
+          },
         });
         if (!senderUser) {
           this.logger.warn(
@@ -511,7 +529,11 @@ export class FederationService {
       case FederationMessageType.FRIEND_ACCEPT: {
         const friendAcceptMessage = message;
         const recipientUser = await this.prisma.user.findFirst({
-          where: { username: friendAcceptMessage.recipientUsername },
+          where: {
+            username: caseInsensitiveUsername(
+              friendAcceptMessage.recipientUsername,
+            ),
+          },
         });
         if (!recipientUser) {
           throw new BadRequestException('Recipient user not found');
@@ -519,7 +541,9 @@ export class FederationService {
 
         let senderUser = await this.prisma.user.findFirst({
           where: {
-            username: friendAcceptMessage.senderUsername,
+            username: caseInsensitiveUsername(
+              friendAcceptMessage.senderUsername,
+            ),
             isFederated: true,
             domain: senderFederation,
           },
@@ -582,7 +606,11 @@ export class FederationService {
       case FederationMessageType.FRIEND_REJECT: {
         const friendRejectMessage = message;
         const recipientUser = await this.prisma.user.findFirst({
-          where: { username: friendRejectMessage.recipientUsername },
+          where: {
+            username: caseInsensitiveUsername(
+              friendRejectMessage.recipientUsername,
+            ),
+          },
         });
         if (!recipientUser) {
           throw new BadRequestException('Recipient user not found');
@@ -590,7 +618,9 @@ export class FederationService {
 
         const senderUser = await this.prisma.user.findFirst({
           where: {
-            username: friendRejectMessage.senderUsername,
+            username: caseInsensitiveUsername(
+              friendRejectMessage.senderUsername,
+            ),
             isFederated: true,
             domain: senderFederation,
           },
@@ -945,7 +975,9 @@ export class FederationService {
         const user = await this.prisma.user.findFirst({
           where: {
             OR: [
-              { username: query.username },
+              {
+                username: maybeCaseInsensitiveUsername(query.username),
+              },
               { email: query.email },
               { id: query.userId },
             ],
@@ -1050,7 +1082,9 @@ export class FederationService {
         const user = await this.prisma.user.findFirst({
           where: {
             OR: [
-              { username: query.username },
+              {
+                username: maybeCaseInsensitiveUsername(query.username),
+              },
               { email: query.email },
               { id: query.userId },
             ],
