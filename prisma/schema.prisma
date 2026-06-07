@@ -17,7 +17,6 @@ generator nestjsDto {
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
 }
 
 enum PrivacyLevel {
@@ -163,10 +162,10 @@ model User {
   Report                 Report[]
 
   // Blocages
-  usersBlocked      BlockedUser[] @relation("UserBlocker")
-  blockedByUsers    BlockedUser[] @relation("UserBlocked")
-  membersBlocked    BlockedMember[] @relation("MemberBlocker")
-  systemsBlocked    BlockedSystem[] @relation("SystemBlocker")
+  usersBlocked   BlockedUser[]   @relation("UserBlocker")
+  blockedByUsers BlockedUser[]   @relation("UserBlocked")
+  membersBlocked BlockedMember[] @relation("MemberBlocker")
+  systemsBlocked BlockedSystem[] @relation("SystemBlocker")
 
   @@unique([distantId, domain])
 }
@@ -193,7 +192,7 @@ model System {
 
   channelCategories ChannelCategory[]
   ReportSystem      ReportSystem[]
-  blockedByUsers    BlockedSystem[] @relation("SystemBlocked")
+  blockedByUsers    BlockedSystem[]   @relation("SystemBlocked")
 }
 
 model Member {
@@ -220,8 +219,8 @@ model Member {
 
   chatMessages ChatMessage[]
 
-  boardMessagesSent     BoardMessage[] @relation("BoardMessageFrom")
-  boardMessagesReceived BoardMessage[] @relation("BoardMessageTo")
+  boardMessagesSent     BoardMessage[]  @relation("BoardMessageFrom")
+  boardMessagesReceived BoardMessage[]  @relation("BoardMessageTo")
   ReportMember          ReportMember[]
   blockedByUsers        BlockedMember[] @relation("MemberBlocked")
 
@@ -356,14 +355,14 @@ model KnownFederation {
 }
 
 model Friendship {
-  id        String           @id @default(uuid())
-  status    FriendshipStatus @default(PENDING)
-  createdAt DateTime         @default(now())
-  type      FriendshipType   @default(FRIENDS)
-  canViewFront                     Boolean @default(false)
-  canReceiveFrontNotifications     Boolean @default(false)
-  canViewSharedMembers             Boolean @default(false)
-  notifyMeOnFriendFrontChange      Boolean @default(false)
+  id                           String           @id @default(uuid())
+  status                       FriendshipStatus @default(PENDING)
+  createdAt                    DateTime         @default(now())
+  type                         FriendshipType   @default(FRIENDS)
+  canViewFront                 Boolean          @default(false)
+  canReceiveFrontNotifications Boolean          @default(false)
+  canViewSharedMembers         Boolean          @default(false)
+  notifyMeOnFriendFrontChange  Boolean          @default(false)
 
   // sender
   userOneId String
