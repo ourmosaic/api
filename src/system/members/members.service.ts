@@ -1,4 +1,10 @@
-import { BadRequestException, forwardRef, Inject, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  forwardRef,
+  Inject,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { SystemService } from '../system.service';
 import {
@@ -490,10 +496,69 @@ export class MembersService {
     return member;
   }
 
-  private castStringToType(
-    value: string,
-    type: FieldType,
-  ): string | number | Date {
+  private isValidDayMonth(value: string): boolean {
+    const match = /^(\d{2})-(\d{2})$/.exec(value);
+    if (!match) {
+      return false;
+    }
+
+    const day = Number(match[1]);
+    const month = Number(match[2]);
+
+    if (month < 1 || month > 12 || day < 1) {
+      return false;
+    }
+
+    const maxDaysByMonth = [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+    return day <= maxDaysByMonth[month - 1];
+  }
+
+  private isValidMonthYear(value: string): boolean {
+    const match = /^(\d{2})-(\d{4})$/.exec(value);
+    if (!match) {
+      return false;
+    }
+
+    const month = Number(match[1]);
+    return month >= 1 && month <= 12;
+  }
+
+  private isValidDateTime(value: string): boolean {
+    const match =
+      /^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})(?::(\d{2})(?:\.(\d{1,3}))?)?$/.exec(
+        value,
+      );
+
+    if (!match) {
+      return false;
+    }
+
+    const year = Number(match[1]);
+    const month = Number(match[2]);
+    const day = Number(match[3]);
+    const hour = Number(match[4]);
+    const minute = Number(match[5]);
+    const second = match[6] ? Number(match[6]) : 0;
+
+    if (
+      month < 1 ||
+      month > 12 ||
+      day < 1 ||
+      hour < 0 ||
+      hour > 23 ||
+      minute < 0 ||
+      minute > 59 ||
+      second < 0 ||
+      second > 59
+    ) {
+      return false;
+    }
+
+    const maxDaysInMonth = new Date(year, month, 0).getDate();
+    return day <= maxDaysInMonth;
+  }
+
+  castStringToType(value: string, type: FieldType): string | number | Date {
     switch (type) {
       case FieldType.STRING:
         return value;
@@ -525,6 +590,27 @@ export class MembersService {
         }
         return dateValue;
       }
+      case FieldType.DATE_DAY_MONTH:
+        if (!this.isValidDayMonth(value)) {
+          throw new BadRequestException(
+            errorCodes.INVALID_FIELD_VALUE_FOR_TYPE,
+          );
+        }
+        return value;
+      case FieldType.DATETIME:
+        if (!this.isValidDateTime(value)) {
+          throw new BadRequestException(
+            errorCodes.INVALID_FIELD_VALUE_FOR_TYPE,
+          );
+        }
+        return value;
+      case FieldType.DATE_MONTH_YEAR:
+        if (!this.isValidMonthYear(value)) {
+          throw new BadRequestException(
+            errorCodes.INVALID_FIELD_VALUE_FOR_TYPE,
+          );
+        }
+        return value;
       default:
         throw new BadRequestException(errorCodes.UNKNOWN_FIELD_TYPE);
     }

@@ -6,6 +6,9 @@ export enum FieldType {
   LONG_TEXT = 'LONG_TEXT',
   COLOR = 'COLOR',
   DATE = 'DATE',
+  DATE_DAY_MONTH = 'DATE_DAY_MONTH',
+  DATETIME = 'DATETIME',
+  DATE_MONTH_YEAR = 'DATE_MONTH_YEAR',
   NUMBER = 'NUMBER',
 }
 

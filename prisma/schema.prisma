@@ -17,6 +17,7 @@ generator nestjsDto {
 
 datasource db {
   provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
 enum PrivacyLevel {
@@ -36,6 +37,9 @@ enum CustomFieldType {
   LONG_TEXT
   COLOR
   DATE
+  DATE_DAY_MONTH
+  DATETIME
+  DATE_MONTH_YEAR
   NUMBER
 }
 
