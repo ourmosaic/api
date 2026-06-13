@@ -1,4 +1,5 @@
 import errorCodes from './errorCodes';
+import ErrorCodes from './errorCodes';
 
 export default {
   'fr-FR': {
@@ -107,5 +108,7 @@ export default {
     [errorCodes.REPORT_REASON_INVALID]: 'La raison du rapport est invalide',
     [errorCodes.REPORT_REASON_TOO_SHORT]:
       'La raison du rapport est trop courte (minimum 10 caractères)',
+    [ErrorCodes.CHANNEL_NOT_FOUND]: 'Canal non trouvé',
+    [ErrorCodes.UNAUTHORIZED]: 'Non autorisé',
   },
 };
