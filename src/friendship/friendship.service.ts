@@ -130,7 +130,13 @@ export class FriendshipService {
                   name: true,
                   type: true,
                   privacy: true,
+                  order: true,
                 },
+              },
+            },
+            orderBy: {
+              customField: {
+                order: 'asc',
               },
             },
           },

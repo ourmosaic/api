@@ -446,7 +446,13 @@ export class MembersService {
                   name: true,
                   type: true,
                   privacy: true,
+                  order: true,
                 },
+              },
+            },
+            orderBy: {
+              customField: {
+                order: 'asc',
               },
             },
           },
@@ -481,7 +487,13 @@ export class MembersService {
                   name: true,
                   type: true,
                   privacy: true,
+                  order: true,
                 },
+              },
+            },
+            orderBy: {
+              customField: {
+                order: 'asc',
               },
             },
           },
