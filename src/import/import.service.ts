@@ -1,6 +1,6 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { PrivacyLevel, User } from '@prisma/client';
+import { CustomFieldType, PrivacyLevel, User } from '@prisma/client';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { FieldType } from 'src/system/dto/updateCustomFieldDefinition.dto';
 import { SystemService } from 'src/system/system.service';
@@ -391,7 +391,7 @@ export class ImportService {
     const customFieldsToCreate: Array<{
       id: string;
       name: string;
-      type: FieldType;
+      type: CustomFieldType;
       order: number;
       systemId: string;
       privacy: PrivacyLevel;
@@ -443,7 +443,7 @@ export class ImportService {
       customFieldsToCreate.push({
         id: newFieldId,
         name: field.name,
-        type: fieldType,
+        type: fieldType as CustomFieldType,
         order: Math.round(order),
         systemId: system.id,
         privacy: PrivacyLevel.PRIVATE,
@@ -471,7 +471,7 @@ export class ImportService {
       customFieldsToCreate.push({
         id: newFieldId,
         name: fieldAlias,
-        type: FieldType.STRING,
+        type: CustomFieldType.STRING,
         order,
         systemId: system.id,
         privacy: PrivacyLevel.PRIVATE,
