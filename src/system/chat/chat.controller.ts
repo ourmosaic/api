@@ -9,6 +9,7 @@ import {
   Query,
   UseGuards,
   UseInterceptors,
+  Version,
 } from '@nestjs/common';
 import { AuthGuard } from '../../auth/auth.guard';
 import { SystemInterceptor } from '../system.interceptor';
@@ -23,6 +24,7 @@ export class ChatController {
   @Get('channels')
   @UseGuards(AuthGuard)
   @UseInterceptors(SystemInterceptor)
+  @Version('1')
   async getChatChannels(@Sys() system: System) {
     return this.chatService.getChatChannels(system);
   }
@@ -30,6 +32,7 @@ export class ChatController {
   @Get('channels/:channelId/messages')
   @UseGuards(AuthGuard)
   @UseInterceptors(SystemInterceptor)
+  @Version('1')
   async getMessagesForChannel(
     @Sys() system: System,
     @Param('channelId') channelId: string,
@@ -47,6 +50,7 @@ export class ChatController {
   @Get('channels/:channelId/lastKnownSenders')
   @UseGuards(AuthGuard)
   @UseInterceptors(SystemInterceptor)
+  @Version('1')
   async getLastKnownSendersForChannel(
     @Sys() system: System,
     @Param('channelId') channelId: string,
@@ -57,6 +61,7 @@ export class ChatController {
   @Post('channels')
   @UseGuards(AuthGuard)
   @UseInterceptors(SystemInterceptor)
+  @Version('1')
   async createChatChannel(@Sys() system: System, @Body('name') name: string) {
     return this.chatService.createChatChannel(system, name);
   }
@@ -64,6 +69,7 @@ export class ChatController {
   @Delete('channels/:channelId')
   @UseGuards(AuthGuard)
   @UseInterceptors(SystemInterceptor)
+  @Version('1')
   async deleteChatChannel(
     @Sys() system: System,
     @Param('channelId') channelId: string,
@@ -74,6 +80,7 @@ export class ChatController {
   @Post('channels/:channelId/messages')
   @UseGuards(AuthGuard)
   @UseInterceptors(SystemInterceptor)
+  @Version('1')
   async sendMessageToChannel(
     @Sys() system: System,
     @Param('channelId') channelId: string,
@@ -91,6 +98,7 @@ export class ChatController {
   @Patch('channels/:channelId/messages/:messageId')
   @UseGuards(AuthGuard)
   @UseInterceptors(SystemInterceptor)
+  @Version('1')
   async editMessageInChannel(
     @Sys() system: System,
     @Param('channelId') channelId: string,
@@ -108,6 +116,7 @@ export class ChatController {
   @Delete('channels/:channelId/messages/:messageId')
   @UseGuards(AuthGuard)
   @UseInterceptors(SystemInterceptor)
+  @Version('1')
   async deleteMessageInChannel(
     @Sys() system: System,
     @Param('channelId') channelId: string,
