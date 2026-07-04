@@ -91,4 +91,28 @@ export class GroupsService {
     });
     return true;
   }
+
+  async updateGroup(
+    system: System,
+    groupId: string,
+    dto: Partial<CreateGroupDto>,
+  ): Promise<Group> {
+    const group = await this.prisma.group.findUnique({
+      where: { id: groupId },
+    });
+
+    if (!group || group.systemId !== system.id) {
+      throw new Error('Group not found in system');
+    }
+
+    return this.prisma.group.update({
+      where: { id: groupId },
+      data: {
+        name: dto.name || group.name,
+        color: dto.color || group.color,
+        icon: dto.icon || group.icon,
+        parentId: dto.parentId !== undefined ? dto.parentId : group.parentId,
+      },
+    });
+  }
 }

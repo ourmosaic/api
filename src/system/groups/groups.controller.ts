@@ -3,7 +3,7 @@ import {
   Controller,
   Delete,
   Get,
-  Param,
+  Param, Patch,
   Post,
   UseGuards,
   UseInterceptors,
@@ -58,5 +58,17 @@ export class GroupsController {
   @UseInterceptors(SystemInterceptor)
   async deleteGroup(@Sys() system: System, @Param('id') groupId: string) {
     return this.groupsService.deleteGroup(system, groupId);
+  }
+
+  @Patch(':id')
+  @Version('1')
+  @UseGuards(AuthGuard)
+  @UseInterceptors(SystemInterceptor)
+  async updateGroup(
+    @Sys() system: System,
+    @Param('id') groupId: string,
+    @Body() dto: Partial<CreateGroupDto>,
+  ) {
+    return this.groupsService.updateGroup(system, groupId, dto);
   }
 }
