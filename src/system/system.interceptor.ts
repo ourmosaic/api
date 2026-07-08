@@ -27,8 +27,8 @@ export class SystemInterceptor implements NestInterceptor {
       .switchToHttp()
       .getRequest<RequestWithUserAndSystem>();
     if (request.user?.id) {
-      const system = await this.prisma.system.findUnique({
-        where: { userId: request.user.id },
+      const system = await this.prisma.system.findFirst({
+        where: { userId: request.user.id, parentSystemId: null },
       });
 
       if (!system) {

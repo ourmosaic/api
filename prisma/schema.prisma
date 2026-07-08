@@ -153,8 +153,8 @@ model User {
   distantId   String?
   fedePerms   Int      @default(0) // permissions sur la fede (bitfield)
 
-  isSystem Boolean @default(false) // Permet de savoir rapidement si l'utilisateur est un système
-  system   System?
+  isSystem Boolean  @default(false) // Permet de savoir rapidement si l'utilisateur est un système
+  systems  System[]
 
   sentFriendRequests     Friendship[] @relation("UserOne")
   receivedFriendRequests Friendship[] @relation("UserTwo")
@@ -180,7 +180,11 @@ model System {
   distantId    String? // ID distant pour les systèmes fédérés
   frontPrivacy PrivacyLevel @default(PRIVATE)
 
-  userId String @unique
+  parentSystemId String?
+  parentSystem   System?  @relation("SystemHierarchy", fields: [parentSystemId], references: [id], onDelete: SetNull)
+  childSystems   System[] @relation("SystemHierarchy")
+
+  userId String
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   members       Member[]

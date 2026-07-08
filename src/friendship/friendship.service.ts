@@ -348,7 +348,7 @@ export class FriendshipService {
           select: {
             id: true,
             username: true,
-            system: true,
+            systems: true,
             isSystem: true,
           },
         },
@@ -356,7 +356,7 @@ export class FriendshipService {
           select: {
             id: true,
             username: true,
-            system: true,
+            systems: true,
             isSystem: true,
           },
         },
@@ -367,7 +367,7 @@ export class FriendshipService {
     );
     return this.prisma.user.findMany({
       where: { id: { in: friendIds } },
-      select: { id: true, username: true, system: true, isSystem: true },
+      select: { id: true, username: true, systems: true, isSystem: true },
     });
   }
 
@@ -432,7 +432,7 @@ export class FriendshipService {
     return updated;
   }
 
-  async getFriendSystem(
+  async getFriendMainSystem(
     user: UserType,
     friendId: string,
   ): Promise<FriendSystemView> {
@@ -448,8 +448,11 @@ export class FriendshipService {
       throw new BadRequestException(errorCodes.FRIENDSHIP_NOT_FOUND);
     }
 
-    const system = await this.prisma.system.findUnique({
-      where: { userId: friendId },
+    const system = await this.prisma.system.findFirst({
+      where: {
+        userId: friendId,
+        parentSystemId: null,
+      },
     });
 
     if (!system) {
@@ -522,8 +525,8 @@ export class FriendshipService {
       return [];
     }
 
-    const system = await this.prisma.system.findUnique({
-      where: { userId: friendId },
+    const system = await this.prisma.system.findFirst({
+      where: { userId: friendId, parentSystemId: null },
     });
 
     if (!system) {

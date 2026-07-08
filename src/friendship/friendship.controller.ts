@@ -85,7 +85,7 @@ export class FriendshipController {
     @CurrentUser() user: User,
     @Param('friendId') friendId: string,
   ): Promise<FriendSystemView> {
-    return this.friendshipService.getFriendSystem(user, friendId);
+    return this.friendshipService.getFriendMainSystem(user, friendId);
   }
 
   @Get(':friendId/members')

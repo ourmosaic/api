@@ -27,8 +27,8 @@ export class OptionalSystemInterceptor implements NestInterceptor {
 
     if (request.user?.id) {
       try {
-        const system = await this.prisma.system.findUnique({
-          where: { userId: request.user.id },
+        const system = await this.prisma.system.findFirst({
+          where: { userId: request.user.id, parentSystemId: null },
         });
         if (system) {
           request.system = system;

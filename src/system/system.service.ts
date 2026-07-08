@@ -56,6 +56,7 @@ export class SystemService {
     const system = await this.prismaService.system.findFirst({
       where: {
         userId: user.id,
+        parentSystemId: null
       },
     });
 
