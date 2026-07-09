@@ -6,6 +6,7 @@ enum FederationMessageType {
   FRIEND_REQUEST = 'FRIEND_REQUEST',
   FRIEND_ACCEPT = 'FRIEND_ACCEPT',
   FRIEND_REJECT = 'FRIEND_REJECT',
+  FRIEND_REMOVAL = 'FRIEND_REMOVAL',
   FRIENDSHIP_PERMISSIONS = 'FRIENDSHIP_PERMISSIONS',
   USER_UPDATE = 'USER_UPDATE',
   SYSTEM_UPDATE = 'SYSTEM_UPDATE',
@@ -67,6 +68,13 @@ type FriendRejectMessage = FederationMessage & {
   recipientUsername: string;
 };
 
+type FriendRemovalMessage = FederationMessage & {
+  type: FederationMessageType.FRIEND_REMOVAL;
+  distantId: string;
+  senderId: string;
+  recipientId: string;
+};
+
 type UserUpdateMessage = FederationMessage & {
   type: FederationMessageType.USER_UPDATE;
   userId: string;
@@ -120,7 +128,8 @@ type AnyFederationMessage =
   | UserUpdateMessage
   | SystemUpdateMessage
   | FrontUpdateMessage
-  | FriendPermissionsMessage;
+  | FriendPermissionsMessage
+  | FriendRemovalMessage;
 
 export type {
   FederationMessage,
@@ -134,6 +143,7 @@ export type {
   FrontUpdateMessage,
   FriendPermissionsMessage,
   AnyFederationMessage,
+  FriendRemovalMessage,
 };
 
 export { FederationMessageType, FrontUpdateEvent };

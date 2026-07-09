@@ -18,6 +18,7 @@ import {
   FriendRejectMessage,
   FriendRequestMessage,
   type FriendPermissionsMessage,
+  FriendRemovalMessage,
 } from 'src/federation/federationDef';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { RedisService } from 'src/redis/redis.service';
@@ -310,7 +311,23 @@ export class FriendshipService {
     return { requestId, status: newStatus };
   }
 
-  async thoughtWeWereFriends(user: UserType, friendId: string) {
+  async thoughtWeWereFriends(
+    user: UserType,
+    friendId: string,
+    isDistant: boolean = false,
+    federation: string | undefined,
+  ) {
+    if (isDistant) {
+      const presentUser = await this.prisma.user.findFirst({
+        where: {
+          distantId: friendId,
+          isFederated: true,
+          domain: federation?.replace(/https?:\/\//g, '').split('/')[0],
+        },
+      });
+      if (!presentUser) throw new NotFoundException('User not found in base');
+      friendId = presentUser.id;
+    }
     const friendship = await this.prisma.friendship.findMany({
       where: {
         OR: [
@@ -321,6 +338,26 @@ export class FriendshipService {
     });
     if (!friendship || friendship.length === 0) {
       throw new BadRequestException(errorCodes.FRIENDSHIP_NOT_FOUND);
+    }
+    const userTwoId =
+      friendship[0].userOneId == user.id
+        ? friendship[0].userTwoId
+        : friendship[0].userOneId;
+    const userTwo = await this.prisma.user.findUnique({
+      where: {
+        id: userTwoId,
+      },
+    });
+    if (userTwo?.isFederated) {
+      const message: FriendRemovalMessage = {
+        type: FederationMessageType.FRIEND_REMOVAL,
+        timestamp: Date.now(),
+        targetFederation: userTwo.domain!,
+        distantId: userTwo.distantId!,
+        senderId: user.id,
+        recipientId: userTwo.distantId!,
+      };
+      await this.federationService.enqueueMessage(message);
     }
     await this.prisma.friendship.deleteMany({
       where: { OR: friendship.map((f) => ({ id: f.id })) },
