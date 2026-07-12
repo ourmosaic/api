@@ -315,7 +315,7 @@ export class FriendshipService {
     user: UserType,
     friendId: string,
     isDistant: boolean = false,
-    federation: string | undefined,
+    federation?: string,
   ) {
     if (isDistant) {
       const presentUser = await this.prisma.user.findFirst({
