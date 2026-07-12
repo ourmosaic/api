@@ -17,7 +17,7 @@ import { ChatService } from './chat.service';
 import { System as Sys } from 'src/decorators/system.decorator';
 import type { System } from '@prisma/client';
 
-@Controller('chat')
+@Controller(['chat', 'system/:id/chat'])
 export class ChatController {
   constructor(private readonly chatService: ChatService) {}
 

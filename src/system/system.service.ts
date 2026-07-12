@@ -52,6 +52,24 @@ export class SystemService {
     });
   }
 
+  async getSystemByIdAndUser(id: string, user: User) {
+    if (id == '@me') {
+      return this.getSystemByUser(user);
+    }
+    const system = await this.prismaService.system.findFirst({
+      where: {
+        id,
+        userId: user.id,
+      },
+    });
+
+    if (!system) {
+      throw new NotFoundException(errorCodes.SYSTEM_NOT_FOUND);
+    }
+
+    return system;
+  }
+
   async getSystemByUser(user: User) {
     const system = await this.prismaService.system.findFirst({
       where: {
