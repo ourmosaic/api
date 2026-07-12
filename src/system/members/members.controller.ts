@@ -18,7 +18,7 @@ import { MembersService, MemberWithGroups } from './members.service';
 import { AuthGuard } from 'src/auth/auth.guard';
 import { SystemInterceptor } from '../system.interceptor';
 import { System as Sys } from 'src/decorators/system.decorator';
-import type { FrontSession, Member, System } from '@prisma/client';
+import type { FrontSession, Member, System, User } from '@prisma/client';
 import { CreateMemberDto } from './dto/createMember.dto';
 import { UpdateMemberDto } from './dto/updateMember.dto';
 import { UpdateFieldContentDto } from './dto/updateFieldContent.dto';
@@ -31,6 +31,8 @@ import { ApiForbiddenResponse, ApiOkResponse, ApiQuery } from '@nestjs/swagger';
 import { Member as MemberEntity } from 'src/@generated/prisma-nestjs-dto/member.entity';
 import { FrontSession as FrontSessionEntity } from 'src/@generated/prisma-nestjs-dto/frontSession.entity';
 import { buildMinioUrl, MINIO_BUCKET_NAME } from 'src/utils/constants';
+import { CurrentUser } from '../../decorators/current-user.decorator';
+import { SystemService } from '../system.service';
 
 @Controller('system/@me/members')
 export class MembersController {
@@ -38,6 +40,7 @@ export class MembersController {
     private readonly membersService: MembersService,
     private readonly storageService: StorageService,
     private readonly configService: ConfigService,
+    private readonly systemService: SystemService
   ) {}
 
   private getMinioUrl(): string {
@@ -62,9 +65,11 @@ export class MembersController {
   })
   @ApiForbiddenResponse({ description: 'Forbidden.' })
   async getMembers(
-    @Sys() system: System,
     @Query('withCustomFields') withCustomFields: boolean = false,
+    @Param('sysId') sysId: string,
+    @CurrentUser() user: User,
   ): Promise<MemberWithGroups[]> {
+    const system = await this.systemService.getSystemByIdAndUser(sysId, user);
     return this.membersService.getMembersFor(system, withCustomFields);
   }
 
@@ -78,9 +83,11 @@ export class MembersController {
   })
   @ApiForbiddenResponse({ description: 'Forbidden.' })
   async createMember(
-    @Sys() system: System,
     @Body() dto: CreateMemberDto,
+    @Param('sysId') sysId: string,
+    @CurrentUser() user: User,
   ): Promise<Member> {
+    const system = await this.systemService.getSystemByIdAndUser(sysId, user);
     return this.membersService.createMember(system, dto);
   }
 
@@ -94,10 +101,12 @@ export class MembersController {
   })
   @ApiForbiddenResponse({ description: 'Forbidden.' })
   async updateMember(
-    @Sys() system: System,
     @Body() dto: UpdateMemberDto,
     @Param('id') memberId: string,
+    @Param('sysId') sysId: string,
+    @CurrentUser() user: User,
   ): Promise<Member> {
+    const system = await this.systemService.getSystemByIdAndUser(sysId, user);
     return this.membersService.updateMember(memberId, system, dto);
   }
 
@@ -111,11 +120,13 @@ export class MembersController {
   })
   @ApiForbiddenResponse({ description: 'Forbidden.' })
   async updateMemberField(
-    @Sys() system: System,
     @Param('id') memberId: string,
     @Param('fieldId') fieldId: string,
     @Body() dto: UpdateFieldContentDto,
+    @Param('sysId') sysId: string,
+    @CurrentUser() user: User,
   ): Promise<Member> {
+    const system = await this.systemService.getSystemByIdAndUser(sysId, user);
     return this.membersService.updateMemberField(
       memberId,
       system,
@@ -134,7 +145,6 @@ export class MembersController {
   })
   @ApiForbiddenResponse({ description: 'Forbidden.' })
   async syncFrontSessions(
-    @Sys() system: System,
     @Body('sessions')
     sessions: {
       memberId: string;
@@ -142,7 +152,10 @@ export class MembersController {
       startTime: number;
       endTime?: number;
     }[],
+    @Param('sysId') sysId: string,
+    @CurrentUser() user: User,
   ): Promise<FrontSession[]> {
+    const system = await this.systemService.getSystemByIdAndUser(sysId, user);
     return this.membersService.syncFrontSessions(sessions, system);
   }
 
@@ -156,9 +169,11 @@ export class MembersController {
   })
   @ApiForbiddenResponse({ description: 'Forbidden.' })
   async startFrontSession(
-    @Sys() system: System,
     @Param('id') memberId: string,
+    @Param('sysId') sysId: string,
+    @CurrentUser() user: User,
   ): Promise<FrontSession> {
+    const system = await this.systemService.getSystemByIdAndUser(sysId, user);
     return this.membersService.startFrontSessionForMember(memberId, system);
   }
 
@@ -172,9 +187,11 @@ export class MembersController {
   })
   @ApiForbiddenResponse({ description: 'Forbidden.' })
   async endFrontSession(
-    @Sys() system: System,
     @Param('sessionId') sessionId: string,
+    @Param('sysId') sysId: string,
+    @CurrentUser() user: User,
   ): Promise<FrontSession> {
+    const system = await this.systemService.getSystemByIdAndUser(sysId, user);
     return this.membersService.endFrontSessionWithId(sessionId, system);
   }
 
@@ -188,9 +205,11 @@ export class MembersController {
   })
   @ApiForbiddenResponse({ description: 'Forbidden.' })
   async endFrontSessionForMember(
-    @Sys() system: System,
     @Param('id') memberId: string,
+    @Param('sysId') sysId: string,
+    @CurrentUser() user: User,
   ): Promise<FrontSession> {
+    const system = await this.systemService.getSystemByIdAndUser(sysId, user);
     return this.membersService.endFrontSessionForMember(memberId, system);
   }
 
@@ -204,11 +223,13 @@ export class MembersController {
   })
   @ApiForbiddenResponse({ description: 'Forbidden.' })
   async getFrontSessionsForMember(
-    @Sys() system: System,
     @Param('id') memberId: string,
     @Query('limit') limit: number = 10,
     @Query('offset') offset: number = 0,
+    @Param('sysId') sysId: string,
+    @CurrentUser() user: User,
   ): Promise<FrontSession[]> {
+    const system = await this.systemService.getSystemByIdAndUser(sysId, user);
     return this.membersService.getFrontSessionsForMember(
       memberId,
       system,
@@ -227,13 +248,15 @@ export class MembersController {
   })
   @ApiForbiddenResponse({ description: 'Forbidden.' })
   async getFrontSessionsForSystem(
-    @Sys() system: System,
     @Query('limit') limit: number = 10,
     @Query('offset') offset: number = 0,
     @Query('startDate')
     startDate: number = Date.now() - 30 * 24 * 60 * 60 * 1000,
     @Query('endDate') endDate: number = Date.now(),
+    @Param('sysId') sysId: string,
+    @CurrentUser() user: User,
   ): Promise<FrontSession[]> {
+    const system = await this.systemService.getSystemByIdAndUser(sysId, user);
     return this.membersService.getFrontSessionsForSystem(
       system,
       limit,
@@ -259,9 +282,11 @@ export class MembersController {
   })
   @ApiForbiddenResponse({ description: 'Forbidden.' })
   async getActiveFrontSessionsForSystem(
-    @Sys() system: System,
+    @Param('sysId') sysId: string,
+    @CurrentUser() user: User,
     @Query('withMemberDetails') withMemberDetails?: string | boolean,
   ): Promise<FrontSession[]> {
+    const system = await this.systemService.getSystemByIdAndUser(sysId, user);
     return this.membersService.getActiveFrontSessionsForSystem(
       system,
       this.parseBooleanQuery(withMemberDetails),
@@ -278,10 +303,12 @@ export class MembersController {
   })
   @ApiForbiddenResponse({ description: 'Forbidden.' })
   async updateMemberGroups(
-    @Sys() system: System,
     @Param('id') memberId: string,
     @Body('groupIds') groupIds: string[],
+    @Param('sysId') sysId: string,
+    @CurrentUser() user: User,
   ): Promise<Member> {
+    const system = await this.systemService.getSystemByIdAndUser(sysId, user);
     return this.membersService.updateMemberGroups(memberId, system, groupIds);
   }
 
@@ -295,10 +322,12 @@ export class MembersController {
   })
   @ApiForbiddenResponse({ description: 'Forbidden.' })
   async deleteMemberGroups(
-    @Sys() system: System,
     @Param('id') memberId: string,
     @Body('groupIds') groupIds: string[],
+    @Param('sysId') sysId: string,
+    @CurrentUser() user: User,
   ): Promise<Member> {
+    const system = await this.systemService.getSystemByIdAndUser(sysId, user);
     return this.membersService.deleteMemberGroups(memberId, system, groupIds);
   }
 
@@ -311,9 +340,11 @@ export class MembersController {
   })
   @ApiForbiddenResponse({ description: 'Forbidden.' })
   async deleteMember(
-    @Sys() system: System,
     @Param('id') memberId: string,
+    @Param('sysId') sysId: string,
+    @CurrentUser() user: User,
   ): Promise<void> {
+    const system = await this.systemService.getSystemByIdAndUser(sysId, user);
     await this.membersService.deleteMember(memberId, system);
   }
 
@@ -328,11 +359,13 @@ export class MembersController {
   })
   @ApiForbiddenResponse({ description: 'Forbidden.' })
   async uploadMemberAvatar(
-    @Sys() system: System,
+    @Param('sysId') sysId: string,
+    @CurrentUser() user: User,
     @Param('id') memberId: string,
     @UploadedFile() file: Express.Multer.File,
   ): Promise<Member> {
     try {
+      const system = await this.systemService.getSystemByIdAndUser(sysId, user);
       const minioUrl = this.getMinioUrl();
       const metadata = await sharp(file.buffer).metadata();
       if (!['jpeg', 'jpg', 'png', 'webp'].includes(metadata.format)) {
@@ -394,10 +427,12 @@ export class MembersController {
   })
   @ApiForbiddenResponse({ description: 'Forbidden.' })
   async getMemberById(
-    @Sys() system: System,
+    @Param('sysId') sysId: string,
+    @CurrentUser() user: User,
     @Param('id') memberId: string,
     @Query('withCustomFields') withCustomFields: boolean = false,
   ): Promise<MemberWithGroups> {
+    const system = await this.systemService.getSystemByIdAndUser(sysId, user);
     return this.membersService.getMemberById(
       memberId,
       system,
