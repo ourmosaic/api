@@ -88,52 +88,77 @@ export class SystemController {
     return await this.systemService.deleteSystemByIdAndUser(systemId, user);
   }
 
-  @Put('@me/customFields')
+  @Put(':id/customFields')
   @Version('1')
   @UseGuards(AuthGuard)
   @UseInterceptors(SystemInterceptor)
-  async createCustomField(@Sys() system: System): Promise<CustomField> {
+  async createCustomField(
+    @Param('id') systemId: string,
+    @CurrentUser() user: User,
+  ): Promise<CustomField> {
+    const system = await this.systemService.getSystemByIdAndUser(
+      systemId,
+      user,
+    );
     return this.systemService.createCustomFieldForSystem(system);
   }
 
-  @Patch('@me/customFields/:fieldId')
+  @Patch(':id/customFields/:fieldId')
   @Version('1')
   @UseGuards(AuthGuard)
   @UseInterceptors(SystemInterceptor)
   async updateCustomField(
-    @Sys() system: System,
+    @Param('id') systemId: string,
+    @CurrentUser() user: User,
     @Param('fieldId') fieldId: string,
     @Body() dto: UpdateCustomFieldDefinitionDto,
   ): Promise<CustomField> {
+    const system = await this.systemService.getSystemByIdAndUser(
+      systemId,
+      user,
+    );
     return this.systemService.updateCustomField(system, fieldId, dto);
   }
 
-  @Delete('@me/customFields/:fieldId')
+  @Delete(':id/customFields/:fieldId')
   @Version('1')
   @UseGuards(AuthGuard)
   @UseInterceptors(SystemInterceptor)
   async deleteCustomField(
-    @Sys() system: System,
+    @Param('id') systemId: string,
+    @CurrentUser() user: User,
     @Param('fieldId') fieldId: string,
   ): Promise<void> {
+    const system = await this.systemService.getSystemByIdAndUser(
+      systemId,
+      user,
+    );
     await this.systemService.deleteCustomField(system, fieldId);
     return;
   }
 
-  @Get('@me/customFields')
+  @Get(':id/customFields')
   @Version('1')
   @UseGuards(AuthGuard)
   @UseInterceptors(SystemInterceptor)
-  async listCustomFields(@Sys() system: System): Promise<CustomField[]> {
+  async listCustomFields(
+    @Param('id') systemId: string,
+    @CurrentUser() user: User,
+  ): Promise<CustomField[]> {
+    const system = await this.systemService.getSystemByIdAndUser(
+      systemId,
+      user,
+    );
     return this.systemService.listCustomFields(system);
   }
 
-  @Patch('@me/avatar')
+  @Patch(':id/avatar')
   @Version('1')
   @UseGuards(AuthGuard)
   @UseInterceptors(SystemInterceptor, FileInterceptor('file'))
   async updateAvatar(
-    @Sys() system: System,
+    @Param('id') systemId: string,
+    @CurrentUser() user: User,
     @UploadedFile(
       new ParseFilePipeBuilder().build({
         fileIsRequired: true,
@@ -144,17 +169,26 @@ export class SystemController {
     )
     file: Express.Multer.File,
   ): Promise<System> {
+    const system = await this.systemService.getSystemByIdAndUser(
+      systemId,
+      user,
+    );
     return this.systemService.updateSystemAvatar(system, file);
   }
 
-  @Patch('@me')
+  @Patch(':id')
   @Version('1')
   @UseGuards(AuthGuard)
   @UseInterceptors(SystemInterceptor)
   async updateSystemInfo(
-    @Sys() system: System,
+    @Param('id') systemId: string,
+    @CurrentUser() user: User,
     @Body() dto: Partial<UpdateSystemDto>,
   ): Promise<System> {
+    const system = await this.systemService.getSystemByIdAndUser(
+      systemId,
+      user,
+    );
     return this.systemService.updateSystemInfo(system, dto);
   }
 }
