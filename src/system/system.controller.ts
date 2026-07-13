@@ -26,6 +26,7 @@ import { UpdateCustomFieldDefinitionDto } from './dto/updateCustomFieldDefinitio
 import { FileInterceptor } from '@nestjs/platform-express';
 import { UpdateSystemDto } from 'src/@generated/prisma-nestjs-dto/update-system.dto';
 import errorCodes from 'src/utils/errorCodes';
+import { CreateSystemOrSubSystemDto } from './dto/createSystemOrSubSystem.dto';
 
 @Controller('system')
 export class SystemController {
@@ -39,6 +40,16 @@ export class SystemController {
     @CurrentUser() user: User,
   ): Promise<System> {
     return this.systemService.createSystem(createSystemDto, user);
+  }
+
+  @Post('@me')
+  @Version('2')
+  @UseGuards(AuthGuard)
+  async createSystemOrSubSystem(
+    @Body() createSystemDto: CreateSystemOrSubSystemDto,
+    @CurrentUser() user: User,
+  ): Promise<System> {
+    return this.systemService.createSystemOrSubSystem(createSystemDto, user);
   }
 
   @Get('@me')

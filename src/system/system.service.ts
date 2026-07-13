@@ -13,6 +13,7 @@ import { StorageService } from 'src/storage/storage.service';
 import { buildMinioUrl, MINIO_BUCKET_NAME } from 'src/utils/constants';
 import sharp from 'sharp';
 import { UpdateSystemDto } from 'src/@generated/prisma-nestjs-dto/update-system.dto';
+import { CreateSystemOrSubSystemDto } from './dto/createSystemOrSubSystem.dto';
 
 @Injectable()
 export class SystemService {
@@ -43,11 +44,56 @@ export class SystemService {
         isSystem: true,
       },
     });
-    return await this.prismaService.system.create({
+    return this.prismaService.system.create({
       data: {
         customName: createSystemDto.customName || user.username,
         description: createSystemDto.description,
         userId: user.id,
+      },
+    });
+  }
+
+  async createSystemOrSubSystem(
+    createSystemDto: CreateSystemOrSubSystemDto,
+    user: User,
+  ): Promise<System> {
+    if (!createSystemDto.parent) {
+      if (user.isSystem)
+        throw new BadRequestException(errorCodes.USER_ALREADY_HAS_SYSTEM);
+      await this.prismaService.user.update({
+        where: {
+          id: user.id,
+        },
+        data: {
+          isSystem: true,
+        },
+      });
+      return this.prismaService.system.create({
+        data: {
+          customName: createSystemDto.customName || user.username,
+          description: createSystemDto.description,
+          userId: user.id,
+        },
+      });
+    }
+    const parentSys = await this.prismaService.system.findFirst({
+      where: {
+        id: createSystemDto.parent,
+        userId: user.id,
+      },
+    });
+    if (!parentSys) {
+      throw new BadRequestException(
+        'The specified parent system does not exist.',
+      );
+    }
+    return this.prismaService.system.create({
+      data: {
+        customName:
+          createSystemDto.customName || `${parentSys.customName}'s Subsystem`,
+        description: createSystemDto.description,
+        userId: user.id,
+        parentSystemId: parentSys.id,
       },
     });
   }
