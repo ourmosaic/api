@@ -59,12 +59,33 @@ export class SystemController {
     return this.systemService.getSystemByUser(user);
   }
 
-  @Delete('@me')
+  @Get('@me')
+  @Version('2')
+  @UseGuards(AuthGuard)
+  async getSystemsByUser(@CurrentUser() user: User): Promise<System[]> {
+    return this.systemService.getSystemsByUser(user);
+  }
+
+  @Get(':id')
+  @Version('2')
+  @UseGuards(AuthGuard)
+  async getSystemById(
+    @Param('id') systemId: string,
+    @CurrentUser() user: User,
+  ): Promise<System> {
+    return this.systemService.getSystemByIdAndUser(systemId, user);
+  }
+
+  @Delete(':id')
   @Version('1')
   @UseGuards(AuthGuard)
-  async deleteMySystem(@CurrentUser() user: User): Promise<void> {
-    await this.systemService.deleteSystemForUser(user);
-    return;
+  async deleteMySystem(
+    @CurrentUser() user: User,
+    @Param('id') systemId: string,
+  ): Promise<void> {
+    if (systemId == '@me')
+      return await this.systemService.deleteSystemForUser(user);
+    return await this.systemService.deleteSystemByIdAndUser(systemId, user);
   }
 
   @Put('@me/customFields')

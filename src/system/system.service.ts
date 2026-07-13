@@ -120,7 +120,7 @@ export class SystemService {
     const system = await this.prismaService.system.findFirst({
       where: {
         userId: user.id,
-        parentSystemId: null
+        parentSystemId: null,
       },
     });
 
@@ -129,6 +129,20 @@ export class SystemService {
     }
 
     return system;
+  }
+
+  async getSystemsByUser(user: User) {
+    const systems = await this.prismaService.system.findMany({
+      where: {
+        userId: user.id,
+      },
+    });
+
+    if (!systems || systems.length === 0) {
+      throw new NotFoundException(errorCodes.USER_HAS_NO_SYSTEM);
+    }
+
+    return systems;
   }
 
   async getSystemById(id: string) {
@@ -160,6 +174,43 @@ export class SystemService {
         isSystem: false,
       },
     });
+  }
+
+  async deleteSystemByIdAndUser(id: string, user: User) {
+    const system = await this.prismaService.system.findFirst({
+      where: {
+        id,
+        userId: user.id,
+      },
+    });
+
+    if (!system) {
+      throw new NotFoundException(errorCodes.SYSTEM_NOT_FOUND);
+    }
+
+    await this.prismaService.system.delete({
+      where: {
+        id: system.id,
+      },
+    });
+
+    // If the deleted system was the user's main system, update isSystem to false
+    const remainingSystems = await this.prismaService.system.findMany({
+      where: {
+        userId: user.id,
+      },
+    });
+
+    if (remainingSystems.length === 0) {
+      await this.prismaService.user.update({
+        where: {
+          id: user.id,
+        },
+        data: {
+          isSystem: false,
+        },
+      });
+    }
   }
 
   async createCustomFieldForSystem(
