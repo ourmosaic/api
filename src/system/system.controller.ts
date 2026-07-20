@@ -21,7 +21,6 @@ import { CurrentUser } from 'src/decorators/current-user.decorator';
 import type { CustomField, System, User } from '@prisma/client';
 import { SystemService } from './system.service';
 import { SystemInterceptor } from './system.interceptor';
-import { System as Sys } from 'src/decorators/system.decorator';
 import { UpdateCustomFieldDefinitionDto } from './dto/updateCustomFieldDefinition.dto';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { UpdateSystemDto } from 'src/@generated/prisma-nestjs-dto/update-system.dto';
