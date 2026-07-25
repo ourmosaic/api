@@ -34,7 +34,7 @@ import { buildMinioUrl, MINIO_BUCKET_NAME } from 'src/utils/constants';
 import { CurrentUser } from '../../decorators/current-user.decorator';
 import { SystemService } from '../system.service';
 
-@Controller('system/@me/members')
+@Controller('system/:sysId/members')
 export class MembersController {
   constructor(
     private readonly membersService: MembersService,
