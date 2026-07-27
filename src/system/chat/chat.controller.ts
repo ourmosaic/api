@@ -38,7 +38,7 @@ export class ChatController {
   @UseGuards(AuthGuard)
   @Version('2')
   async getChatChannels2(
-    @Param('id') systemId: string,
+    @Param('sysId') systemId: string,
     @CurrentUser() user: User,
   ) {
     const system = await this.systemService.getSystemByIdAndUser(
@@ -70,7 +70,7 @@ export class ChatController {
   @UseGuards(AuthGuard)
   @Version('2')
   async getMessagesForChannel2(
-    @Param('id') systemId: string,
+    @Param('sysId') systemId: string,
     @CurrentUser() user: User,
     @Param('channelId') channelId: string,
     @Query('limit') limit: number = 50,
@@ -104,7 +104,7 @@ export class ChatController {
   @UseInterceptors(SystemInterceptor)
   @Version('2')
   async getLastKnownSendersForChannel2(
-    @Param('id') systemId: string,
+    @Param('sysId') systemId: string,
     @CurrentUser() user: User,
     @Param('channelId') channelId: string,
   ) {
@@ -127,7 +127,7 @@ export class ChatController {
   @UseGuards(AuthGuard)
   @Version('2')
   async createChatChannel2(
-    @Param('id') systemId: string,
+    @Param('sysId') systemId: string,
     @CurrentUser() user: User,
     @Body('name') name: string,
   ) {
@@ -153,7 +153,7 @@ export class ChatController {
   @UseGuards(AuthGuard)
   @Version('2')
   async deleteChatChannel2(
-    @Param('id') systemId: string,
+    @Param('sysId') systemId: string,
     @CurrentUser() user: User,
     @Param('channelId') channelId: string,
   ) {
@@ -186,7 +186,7 @@ export class ChatController {
   @UseGuards(AuthGuard)
   @Version('2')
   async sendMessageToChannel2(
-    @Param('id') systemId: string,
+    @Param('sysId') systemId: string,
     @CurrentUser() user: User,
     @Param('channelId') channelId: string,
     @Body('senderId') senderId: string,
@@ -226,7 +226,7 @@ export class ChatController {
   @UseGuards(AuthGuard)
   @Version('2')
   async editMessageInChannel2(
-    @Param('id') systemId: string,
+    @Param('sysId') systemId: string,
     @CurrentUser() user: User,
     @Param('channelId') channelId: string,
     @Param('messageId') messageId: string,
@@ -264,7 +264,7 @@ export class ChatController {
   @UseGuards(AuthGuard)
   @Version('2')
   async deleteMessageInChannel2(
-    @Param('id') systemId: string,
+    @Param('sysId') systemId: string,
     @CurrentUser() user: User,
     @Param('channelId') channelId: string,
     @Param('messageId') messageId: string,
