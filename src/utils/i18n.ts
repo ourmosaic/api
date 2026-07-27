@@ -24,6 +24,8 @@ export default {
       'Les pronoms sont invalides (doit être une chaîne de caractères)',
     [errorCodes.INVALID_ROLE_NAME]: 'Le nom du rôle est invalide',
     [errorCodes.SYSTEM_NOT_YOURS]: 'Ce système ne vous appartient pas',
+    [errorCodes.TARGET_SYSTEM_MUST_BE_SUBSYSTEM]:
+      'Le système cible doit être un sous-système du même utilisateur',
     [errorCodes.MEMBER_NOT_FOUND_IN_SYSTEM]:
       'Membre non trouvé dans le système',
     [errorCodes.SYSTEM_NOT_FOUND]: 'Système non trouvé',

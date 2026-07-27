@@ -1,14 +1,30 @@
 import {
   ConflictException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
 import argon2id from 'argon2';
+import { FriendshipStatus } from '@prisma/client';
 import { PrismaService } from 'src/prisma/prisma.service';
 import errorCodes from 'src/utils/errorCodes';
 import { UpdateMeDto } from './dto/update-me.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
+
+export type UserActiveFrontSession = {
+  sessionId: string;
+  startTime: Date;
+  member: {
+    id: string;
+    name: string;
+    systemId: string;
+  };
+  system: {
+    id: string;
+    customName: string | null;
+  };
+};
 
 const userPrivateSelect = {
   id: true,
@@ -58,6 +74,76 @@ export class UsersService {
     }
 
     return user;
+  }
+
+  async getActiveFrontSessionsByUserId(
+    userId: string,
+    requesterId: string,
+  ): Promise<UserActiveFrontSession[]> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true },
+    });
+
+    if (!user) {
+      throw new NotFoundException(errorCodes.USER_NOT_FOUND);
+    }
+
+    if (requesterId !== userId) {
+      const friendship = await this.prisma.friendship.findFirst({
+        where: {
+          userOneId: userId,
+          userTwoId: requesterId,
+          status: FriendshipStatus.ACCEPTED,
+          canViewFront: true,
+        },
+        select: { id: true },
+      });
+
+      if (!friendship) {
+        throw new ForbiddenException(errorCodes.UNAUTHORIZED);
+      }
+    }
+
+    const systems = await this.prisma.system.findMany({
+      where: { userId },
+      select: { id: true, customName: true },
+    });
+
+    if (systems.length === 0) {
+      return [];
+    }
+
+    const sessions = await this.prisma.frontSession.findMany({
+      where: {
+        systemId: { in: systems.map((system) => system.id) },
+        endTime: null,
+      },
+      orderBy: {
+        startTime: 'desc',
+      },
+      include: {
+        member: {
+          select: {
+            id: true,
+            name: true,
+            systemId: true,
+          },
+        },
+      },
+    });
+
+    const systemById = new Map(systems.map((system) => [system.id, system]));
+
+    return sessions.map((session) => ({
+      sessionId: session.id,
+      startTime: session.startTime,
+      member: session.member,
+      system: {
+        id: session.systemId,
+        customName: systemById.get(session.systemId)?.customName ?? null,
+      },
+    }));
   }
 
   async updateCurrentUser(userId: string, dto: UpdateMeDto) {

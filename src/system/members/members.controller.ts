@@ -22,6 +22,7 @@ import type { FrontSession, Member, System, User } from '@prisma/client';
 import { CreateMemberDto } from './dto/createMember.dto';
 import { UpdateMemberDto } from './dto/updateMember.dto';
 import { UpdateFieldContentDto } from './dto/updateFieldContent.dto';
+import { TransferMemberDto } from './dto/transferMember.dto';
 import { FileInterceptor } from '@nestjs/platform-express';
 import errorCodes from 'src/utils/errorCodes';
 import { StorageService } from 'src/storage/storage.service';
@@ -89,6 +90,29 @@ export class MembersController {
   ): Promise<Member> {
     const system = await this.systemService.getSystemByIdAndUser(sysId, user);
     return this.membersService.createMember(system, dto);
+  }
+
+  @Post(':id/transfer')
+  @Version('1')
+  @UseGuards(AuthGuard)
+  @UseInterceptors(SystemInterceptor)
+  @ApiOkResponse({
+    description: 'Member transferred successfully',
+    type: MemberEntity,
+  })
+  @ApiForbiddenResponse({ description: 'Forbidden.' })
+  async transferMemberToSubSystem(
+    @Param('id') memberId: string,
+    @Param('sysId') sysId: string,
+    @CurrentUser() user: User,
+    @Body() dto: TransferMemberDto,
+  ): Promise<System> {
+    const system = await this.systemService.getSystemByIdAndUser(sysId, user);
+    return this.systemService.transferMemberToSubSystem(
+      memberId,
+      system,
+      dto.targetSystemId,
+    );
   }
 
   @Patch(':id')

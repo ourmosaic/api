@@ -145,6 +145,61 @@ export class SystemService {
     return systems;
   }
 
+  async transferMemberToSubSystem(
+    memberId: string,
+    sourceSystem: System,
+    targetSystemId: string,
+  ): Promise<System> {
+    if (sourceSystem.id === targetSystemId) {
+      throw new BadRequestException(errorCodes.TARGET_SYSTEM_MUST_BE_SUBSYSTEM);
+    }
+
+    const targetSystem = await this.prismaService.system.findFirst({
+      where: {
+        id: targetSystemId,
+        userId: sourceSystem.userId,
+        parentSystemId: sourceSystem.id,
+      },
+    });
+
+    if (!targetSystem) {
+      throw new NotFoundException(errorCodes.TARGET_SYSTEM_MUST_BE_SUBSYSTEM);
+    }
+
+    const member = await this.prismaService.member.findUnique({
+      where: {
+        id: memberId,
+      },
+    });
+
+    if (!member || member.systemId !== sourceSystem.id) {
+      throw new NotFoundException(errorCodes.MEMBER_NOT_FOUND_IN_SYSTEM);
+    }
+
+    const activeSessions = await this.prismaService.frontSession.findMany({
+      where: {
+        memberId,
+        systemId: sourceSystem.id,
+        endTime: null,
+      },
+    });
+
+    await this.prismaService.$transaction([
+      this.prismaService.member.update({
+        where: { id: memberId },
+        data: { systemId: targetSystem.id },
+      }),
+      ...activeSessions.map((session) =>
+        this.prismaService.frontSession.update({
+          where: { id: session.id },
+          data: { systemId: targetSystem.id },
+        }),
+      ),
+    ]);
+
+    return targetSystem;
+  }
+
   async getSystemById(id: string) {
     const system = await this.prismaService.system.findUnique({
       where: {
