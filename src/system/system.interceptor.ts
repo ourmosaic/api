@@ -32,7 +32,7 @@ export class SystemInterceptor implements NestInterceptor {
 
       let system: System | null;
 
-      if (systemId) {
+      if (systemId && systemId !== '@me') {
         // If a system ID is provided in the URL, fetch that specific system
         system = await this.prisma.system.findFirst({
           where: { id: systemId, userId: request.user.id },
