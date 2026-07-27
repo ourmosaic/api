@@ -17,7 +17,6 @@ import { ConfigService } from '@nestjs/config';
 import { MembersService, MemberWithGroups } from './members.service';
 import { AuthGuard } from 'src/auth/auth.guard';
 import { SystemInterceptor } from '../system.interceptor';
-import { System as Sys } from 'src/decorators/system.decorator';
 import type { FrontSession, Member, System, User } from '@prisma/client';
 import { CreateMemberDto } from './dto/createMember.dto';
 import { UpdateMemberDto } from './dto/updateMember.dto';
