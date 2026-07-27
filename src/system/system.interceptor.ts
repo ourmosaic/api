@@ -28,7 +28,7 @@ export class SystemInterceptor implements NestInterceptor {
       .switchToHttp()
       .getRequest<RequestWithUserAndSystem>();
     if (request.user?.id) {
-      const systemId = request.params?.id;
+      const systemId = request.params?.sysId || request.params?.id;
 
       let system: System | null;
 
