@@ -1,6 +1,7 @@
 import {
   Controller,
   MessageEvent,
+  Param,
   Sse,
   UnauthorizedException,
   UseGuards,
@@ -10,17 +11,21 @@ import {
 import { AuthGuard } from 'src/auth/auth.guard';
 import { CurrentUser } from 'src/decorators/current-user.decorator';
 import { System as CurrentSystem } from 'src/decorators/system.decorator';
-import type { System } from '@prisma/client';
+import type { System, User } from '@prisma/client';
 import { map, merge, Observable, timer } from 'rxjs';
 import { NotificationsService } from './notifications.service';
 import { SystemInterceptor } from 'src/system/system.interceptor';
 import { OptionalSystemInterceptor } from 'src/system/optional-system.interceptor';
+import { SystemService } from 'src/system/system.service';
 import { SSE_KEEPALIVE_INTERVAL_MS, SSE_TOPICS } from 'src/utils/constants';
 
-@Controller('notifications')
+@Controller(['notifications', 'system/:id/notifications'])
 @UseGuards(AuthGuard)
 export class NotificationsController {
-  constructor(private readonly notificationsService: NotificationsService) {}
+  constructor(
+    private readonly notificationsService: NotificationsService,
+    private readonly systemService: SystemService,
+  ) {}
 
   private keepAlive(scope: string): Observable<MessageEvent> {
     return timer(0, SSE_KEEPALIVE_INTERVAL_MS).pipe(
@@ -163,33 +168,63 @@ export class NotificationsController {
     ]);
   }
 
-  @Sse('front-sessions')
-  @Version('1')
-  @UseInterceptors(SystemInterceptor)
-  streamFrontSessionNotifications(
-    @CurrentSystem() system?: System,
-  ): Observable<MessageEvent> {
-    if (!system) {
-      throw new UnauthorizedException('Missing system context');
-    }
-    return this.mergeStreams('notifications:front-sessions', [
-      this.notificationsService.streamChannel(`${system.id}::sessions`),
-    ]);
-  }
+   @Sse('front-sessions')
+   @Version('1')
+   @UseInterceptors(SystemInterceptor)
+   streamFrontSessionNotifications(
+     @CurrentSystem() system?: System,
+   ): Observable<MessageEvent> {
+     if (!system) {
+       throw new UnauthorizedException('Missing system context');
+     }
+     return this.mergeStreams('notifications:front-sessions', [
+       this.notificationsService.streamChannel(`${system.id}::sessions`),
+     ]);
+   }
 
-  @Sse('system')
-  @Version('1')
-  @UseInterceptors(SystemInterceptor)
-  streamSystemNotifications(
-    @CurrentSystem() system?: System,
-  ): Observable<MessageEvent> {
-    if (!system) {
-      throw new UnauthorizedException('Missing system context');
-    }
-    return this.mergeStreams('notifications:system', [
-      this.topicStream(`${system.id}::sessions`, SSE_TOPICS.FRONT_SESSIONS),
-    ]);
-  }
+   @Sse('front-sessions')
+   @Version('2')
+   async streamFrontSessionNotifications2(
+     @Param('id') systemId: string,
+     @CurrentUser() user: User,
+   ): Promise<Observable<MessageEvent>> {
+     const system = await this.systemService.getSystemByIdAndUser(
+       systemId,
+       user,
+     );
+     return this.mergeStreams('notifications:front-sessions', [
+       this.notificationsService.streamChannel(`${system.id}::sessions`),
+     ]);
+   }
+
+   @Sse('system')
+   @Version('1')
+   @UseInterceptors(SystemInterceptor)
+   streamSystemNotifications(
+     @CurrentSystem() system?: System,
+   ): Observable<MessageEvent> {
+     if (!system) {
+       throw new UnauthorizedException('Missing system context');
+     }
+     return this.mergeStreams('notifications:system', [
+       this.topicStream(`${system.id}::sessions`, SSE_TOPICS.FRONT_SESSIONS),
+     ]);
+   }
+
+   @Sse('system')
+   @Version('2')
+   async streamSystemNotifications2(
+     @Param('id') systemId: string,
+     @CurrentUser() user: User,
+   ): Promise<Observable<MessageEvent>> {
+     const system = await this.systemService.getSystemByIdAndUser(
+       systemId,
+       user,
+     );
+     return this.mergeStreams('notifications:system', [
+       this.topicStream(`${system.id}::sessions`, SSE_TOPICS.FRONT_SESSIONS),
+     ]);
+   }
 
   @Sse('federation/front-sessions')
   @Version('1')

@@ -11,6 +11,7 @@ import { PrismaService } from '../prisma/prisma.service';
 type RequestWithUserAndSystem = {
   user?: { id?: string };
   system?: System;
+  params?: Record<string, string>;
 };
 
 @Injectable()
@@ -27,9 +28,21 @@ export class OptionalSystemInterceptor implements NestInterceptor {
 
     if (request.user?.id) {
       try {
-        const system = await this.prisma.system.findFirst({
-          where: { userId: request.user.id, parentSystemId: null },
-        });
+        const systemId = request.params?.id;
+        let system: System | null;
+
+        if (systemId) {
+          // If a system ID is provided in the URL, fetch that specific system
+          system = await this.prisma.system.findFirst({
+            where: { id: systemId, userId: request.user.id },
+          });
+        } else {
+          // Otherwise, fetch the root system
+          system = await this.prisma.system.findFirst({
+            where: { userId: request.user.id, parentSystemId: null },
+          });
+        }
+
         if (system) {
           request.system = system;
         }
