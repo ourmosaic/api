@@ -158,7 +158,6 @@ export class SystemService {
       where: {
         id: targetSystemId,
         userId: sourceSystem.userId,
-        parentSystemId: { not: null },
       },
     });
 
