@@ -19,7 +19,7 @@ import type { System, User } from '@prisma/client';
 import { SystemService } from '../system.service';
 import { CurrentUser } from '../../decorators/current-user.decorator';
 
-@Controller(['chat', 'system/:id/chat'])
+@Controller(['chat', 'system/:sysId/chat'])
 export class ChatController {
   constructor(
     private readonly chatService: ChatService,
