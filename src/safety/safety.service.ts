@@ -1,4 +1,9 @@
-import { Injectable, BadRequestException, Inject, forwardRef } from '@nestjs/common';
+import {
+  Injectable,
+  BadRequestException,
+  Inject,
+  forwardRef,
+} from '@nestjs/common';
 import { ReportType, BlockType, User } from '@prisma/client';
 import { ReportDto } from './dto/report.dto';
 import { BlockDto, UnblockDto } from './dto/block.dto';
@@ -218,7 +223,9 @@ export class SafetyService {
             data: {
               blockerId: user.id,
               blockedId: systemOwner,
-              reason: blockDto.reason ? `Auto-blocked with system: ${blockDto.reason}` : 'Auto-blocked with system',
+              reason: blockDto.reason
+                ? `Auto-blocked with system: ${blockDto.reason}`
+                : 'Auto-blocked with system',
             },
           });
         }
@@ -249,7 +256,10 @@ export class SafetyService {
           });
 
           // Notifier la fédération si l'ami est fédéré
-          const otherUser = friendship.userOneId === user.id ? friendship.userTwo : friendship.userOne;
+          const otherUser =
+            friendship.userOneId === user.id
+              ? friendship.userTwo
+              : friendship.userOne;
           if (otherUser.isFederated && otherUser.domain) {
             const message: FriendRejectMessage = {
               type: FederationMessageType.FRIEND_REJECT,
@@ -357,7 +367,10 @@ export class SafetyService {
           });
 
           // Vérifier si le blocage a été créé automatiquement (contient "Auto-blocked with system")
-          if (userBlock && userBlock.reason?.includes('Auto-blocked with system')) {
+          if (
+            userBlock &&
+            userBlock.reason?.includes('Auto-blocked with system')
+          ) {
             await this.prisma.blockedUser.delete({
               where: {
                 id: userBlock.id,

@@ -1,4 +1,10 @@
-import { BadRequestException, forwardRef, Inject, Injectable, Logger } from '@nestjs/common';
+import {
+  BadRequestException,
+  forwardRef,
+  Inject,
+  Injectable,
+  Logger,
+} from '@nestjs/common';
 import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
@@ -11,7 +17,8 @@ import { UsersService } from 'src/users/users.service';
 import {
   type AnyFederationMessage,
   FederationMessageType,
-  type FriendPermissionsMessage, FriendRejectMessage,
+  type FriendPermissionsMessage,
+  FriendRejectMessage,
   FriendRequestMessage,
   type FriendshipPermissionFlags,
   FrontUpdateEvent,

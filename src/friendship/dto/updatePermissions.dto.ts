@@ -17,4 +17,3 @@ export class UpdateFriendshipPermissionsDto {
   @IsBoolean()
   notifyMeOnFriendFrontChange?: boolean;
 }
-

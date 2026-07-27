@@ -40,7 +40,7 @@ export class MembersController {
     private readonly membersService: MembersService,
     private readonly storageService: StorageService,
     private readonly configService: ConfigService,
-    private readonly systemService: SystemService
+    private readonly systemService: SystemService,
   ) {}
 
   private getMinioUrl(): string {

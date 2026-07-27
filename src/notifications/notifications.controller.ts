@@ -168,63 +168,63 @@ export class NotificationsController {
     ]);
   }
 
-   @Sse('front-sessions')
-   @Version('1')
-   @UseInterceptors(SystemInterceptor)
-   streamFrontSessionNotifications(
-     @CurrentSystem() system?: System,
-   ): Observable<MessageEvent> {
-     if (!system) {
-       throw new UnauthorizedException('Missing system context');
-     }
-     return this.mergeStreams('notifications:front-sessions', [
-       this.notificationsService.streamChannel(`${system.id}::sessions`),
-     ]);
-   }
+  @Sse('front-sessions')
+  @Version('1')
+  @UseInterceptors(SystemInterceptor)
+  streamFrontSessionNotifications(
+    @CurrentSystem() system?: System,
+  ): Observable<MessageEvent> {
+    if (!system) {
+      throw new UnauthorizedException('Missing system context');
+    }
+    return this.mergeStreams('notifications:front-sessions', [
+      this.notificationsService.streamChannel(`${system.id}::sessions`),
+    ]);
+  }
 
-   @Sse('front-sessions')
-   @Version('2')
-   async streamFrontSessionNotifications2(
-     @Param('id') systemId: string,
-     @CurrentUser() user: User,
-   ): Promise<Observable<MessageEvent>> {
-     const system = await this.systemService.getSystemByIdAndUser(
-       systemId,
-       user,
-     );
-     return this.mergeStreams('notifications:front-sessions', [
-       this.notificationsService.streamChannel(`${system.id}::sessions`),
-     ]);
-   }
+  @Sse('front-sessions')
+  @Version('2')
+  async streamFrontSessionNotifications2(
+    @Param('id') systemId: string,
+    @CurrentUser() user: User,
+  ): Promise<Observable<MessageEvent>> {
+    const system = await this.systemService.getSystemByIdAndUser(
+      systemId,
+      user,
+    );
+    return this.mergeStreams('notifications:front-sessions', [
+      this.notificationsService.streamChannel(`${system.id}::sessions`),
+    ]);
+  }
 
-   @Sse('system')
-   @Version('1')
-   @UseInterceptors(SystemInterceptor)
-   streamSystemNotifications(
-     @CurrentSystem() system?: System,
-   ): Observable<MessageEvent> {
-     if (!system) {
-       throw new UnauthorizedException('Missing system context');
-     }
-     return this.mergeStreams('notifications:system', [
-       this.topicStream(`${system.id}::sessions`, SSE_TOPICS.FRONT_SESSIONS),
-     ]);
-   }
+  @Sse('system')
+  @Version('1')
+  @UseInterceptors(SystemInterceptor)
+  streamSystemNotifications(
+    @CurrentSystem() system?: System,
+  ): Observable<MessageEvent> {
+    if (!system) {
+      throw new UnauthorizedException('Missing system context');
+    }
+    return this.mergeStreams('notifications:system', [
+      this.topicStream(`${system.id}::sessions`, SSE_TOPICS.FRONT_SESSIONS),
+    ]);
+  }
 
-   @Sse('system')
-   @Version('2')
-   async streamSystemNotifications2(
-     @Param('id') systemId: string,
-     @CurrentUser() user: User,
-   ): Promise<Observable<MessageEvent>> {
-     const system = await this.systemService.getSystemByIdAndUser(
-       systemId,
-       user,
-     );
-     return this.mergeStreams('notifications:system', [
-       this.topicStream(`${system.id}::sessions`, SSE_TOPICS.FRONT_SESSIONS),
-     ]);
-   }
+  @Sse('system')
+  @Version('2')
+  async streamSystemNotifications2(
+    @Param('id') systemId: string,
+    @CurrentUser() user: User,
+  ): Promise<Observable<MessageEvent>> {
+    const system = await this.systemService.getSystemByIdAndUser(
+      systemId,
+      user,
+    );
+    return this.mergeStreams('notifications:system', [
+      this.topicStream(`${system.id}::sessions`, SSE_TOPICS.FRONT_SESSIONS),
+    ]);
+  }
 
   @Sse('federation/front-sessions')
   @Version('1')

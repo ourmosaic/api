@@ -37,7 +37,10 @@ export class ChatController {
   @Get('channels')
   @UseGuards(AuthGuard)
   @Version('2')
-  async getChatChannels2(@Param('id') systemId: string, @CurrentUser() user: User) {
+  async getChatChannels2(
+    @Param('id') systemId: string,
+    @CurrentUser() user: User,
+  ) {
     const system = await this.systemService.getSystemByIdAndUser(
       systemId,
       user,
