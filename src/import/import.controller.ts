@@ -1,12 +1,16 @@
 import {
   Body,
+  BadRequestException,
   HttpCode,
   HttpStatus,
   Controller,
   Post,
   UseGuards,
   Version,
+  UseInterceptors,
+  UploadedFile,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { AuthGuard } from 'src/auth/auth.guard';
 import { ImportService } from './import.service';
 import { CurrentUser } from '../decorators/current-user.decorator';
@@ -20,7 +24,21 @@ export class ImportController {
   @UseGuards(AuthGuard)
   @Version('1')
   @HttpCode(HttpStatus.ACCEPTED)
-  importFromSimplyPlural(@Body() data: any, @CurrentUser() user: User) {
+  @UseInterceptors(FileInterceptor('file'))
+  importFromSimplyPlural(
+    @Body() data: unknown,
+    @UploadedFile() file: Express.Multer.File | undefined,
+    @CurrentUser() user: User,
+  ) {
+    if (file?.buffer?.length) {
+      try {
+        const parsedFile: unknown = JSON.parse(file.buffer.toString('utf8'));
+        return this.importService.importFromSimplyPlural(user, parsedFile);
+      } catch {
+        throw new BadRequestException('INVALID_JSON_FILE');
+      }
+    }
+
     return this.importService.importFromSimplyPlural(user, data);
   }
 
@@ -39,7 +57,21 @@ export class ImportController {
   @UseGuards(AuthGuard)
   @Version('1')
   @HttpCode(HttpStatus.ACCEPTED)
-  importFromAmpersand(@Body() data: any, @CurrentUser() user: User) {
+  @UseInterceptors(FileInterceptor('file'))
+  importFromAmpersand(
+    @Body() data: unknown,
+    @UploadedFile() file: Express.Multer.File | undefined,
+    @CurrentUser() user: User,
+  ) {
+    if (file?.buffer?.length) {
+      try {
+        const parsedFile: unknown = JSON.parse(file.buffer.toString('utf8'));
+        return this.importService.importFromAmpersand(user, parsedFile);
+      } catch {
+        throw new BadRequestException('INVALID_JSON_FILE');
+      }
+    }
+
     return this.importService.importFromAmpersand(user, data);
   }
 }
