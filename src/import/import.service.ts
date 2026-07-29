@@ -18,6 +18,234 @@ import { RedisService } from 'src/redis/redis.service';
 
 const BATCH_SIZE = 1000;
 
+type ImageClip =
+  | 'arch'
+  | 'arrow'
+  | 'boom'
+  | 'bun'
+  | 'burst'
+  | 'clamshell'
+  | 'diamond'
+  | 'fan'
+  | 'flower'
+  | 'gem'
+  | 'ghost-ish'
+  | 'heart'
+  | 'leaf-clover4'
+  | 'leaf-clover8'
+  | 'oval'
+  | 'pentagon'
+  | 'pill'
+  | 'pixel-circle'
+  | 'pixel-triangle'
+  | 'puffy-diamond'
+  | 'puffy'
+  | 'semicircle'
+  | 'sided-cookie12'
+  | 'sided-cookie4'
+  | 'sided-cookie6'
+  | 'sided-cookie7'
+  | 'sided-cookie9'
+  | 'slanted'
+  | 'soft-boom'
+  | 'soft-burst'
+  | 'square'
+  | 'sunny'
+  | 'triangle'
+  | 'very-sunny';
+
+type NameStyle = {
+  family: string;
+  weight: number;
+  italic: boolean;
+};
+
+type AmpersandComment = {
+  member: string;
+  comment: string;
+  date: string;
+  replyTo?: string;
+};
+
+type AmpersandBoardMessage = {
+  uuid: string;
+  members: string[];
+  title: string;
+  body: string;
+  date: string;
+  isPinned: boolean;
+  isArchived: boolean;
+  poll?: {
+    entries: Array<{
+      choice: string;
+      votes: Array<{ member: string; reason?: string }>;
+    }>;
+    multipleChoice: boolean;
+  };
+  comments?: AmpersandComment[];
+};
+
+type AmpersandFrontingEntry = {
+  uuid: string;
+  member: string;
+  startTime: string;
+  endTime?: string;
+  isMainFronter: boolean;
+  isLocked: boolean;
+  customStatus?: string;
+  influencing?: string;
+  presence?: Record<string, number>;
+  comment?: string;
+  comments?: AmpersandComment[];
+};
+
+type AmpersandJournalPost = {
+  uuid: string;
+  members: string[];
+  date: string;
+  title: string;
+  subtitle?: string;
+  body: string;
+  cover?: string;
+  tags: string[];
+  isPinned: boolean;
+  isPrivate: boolean;
+  contentWarning?: string;
+  comments?: AmpersandComment[];
+};
+
+type AmpersandMember = {
+  uuid: string;
+  system: string;
+  name: string;
+  pronouns?: string;
+  description?: string;
+  role?: string;
+  age?: number;
+  image?: string;
+  imageClip?: ImageClip;
+  cover?: string;
+  color?: string;
+  customFields?: Record<string, string>;
+  isPinned: boolean;
+  isArchived: boolean;
+  isCustomFront: boolean;
+  tags: string[];
+  dateCreated: string;
+};
+
+type AmpersandReminder = {
+  uuid: string;
+  active: boolean;
+  title: string;
+  message: string;
+  trigger: 'fronting' | 'fronted';
+  members?: string[];
+  delay: number;
+};
+
+type AmpersandSystem = {
+  uuid: string;
+  name: string;
+  description?: string;
+  nameStyle?: NameStyle;
+  cover?: string;
+  image?: string;
+  imageClip?: ImageClip;
+  parent?: string;
+  color?: string;
+  isPinned: boolean;
+  isArchived: boolean;
+  viewInLists: boolean;
+};
+
+type AmpersandCustomField = {
+  uuid: string;
+  name: string;
+  priority: number;
+  default: boolean;
+};
+
+type AmpersandNote = {
+  uuid: string;
+  title: string;
+  content: string;
+  priority: number;
+  isArchived: boolean;
+};
+
+type AmpersandFilterQuery = {
+  uuid: string;
+  name: string;
+  type:
+    | 'members'
+    | 'systems'
+    | 'journal'
+    | 'frontHistory'
+    | 'messageBoard'
+    | 'assetManager'
+    | 'customFields'
+    | 'notes'
+    | 'tagManagement';
+  query: string;
+};
+
+type AmpersandDatabase = {
+  boardMessages: AmpersandBoardMessage[];
+  frontingEntries: AmpersandFrontingEntry[];
+  journalPosts: AmpersandJournalPost[];
+  members: AmpersandMember[];
+  reminders: AmpersandReminder[];
+  systems: AmpersandSystem[];
+  tags: Array<{
+    uuid: string;
+    name: string;
+    description?: string;
+    type: 'member' | 'journal' | 'asset';
+    color?: string;
+    isArchived: boolean;
+    viewInLists: boolean;
+  }>;
+  assets: Array<{
+    uuid: string;
+    file: string;
+    friendlyName: string;
+    tags: string[];
+  }>;
+  customFields: AmpersandCustomField[];
+  notes: AmpersandNote[];
+  filterQueries: AmpersandFilterQuery[];
+};
+
+type AmpersandImportPayload = {
+  revision?: {
+    count: number;
+    humanReadable: string;
+  };
+  config?: {
+    appConfig?: Record<string, unknown>;
+    accessibilityConfig?: Record<string, unknown>;
+    securityConfig?: Record<string, unknown>;
+  };
+  database: AmpersandDatabase;
+};
+
+type MappedAmpersandPayload = {
+  customFields: SimplyPluralCustomField[];
+  users: SimplyPluralUser[];
+  notes: unknown[];
+  members: SimplyPluralMember[];
+  privateFront: unknown;
+  comments: unknown[];
+  chatMessages: SimplyPluralChatMessage[];
+  groups: SimplyPluralGroup[];
+  privacyBuckets: SimplyPluralPrivacyBucket[];
+  frontHistory: SimplyPluralFrontSession[];
+  channelCategories: SimplyPluralChannelCategory[];
+  channels: SimplyPluralChannel[];
+  boardMessages: SimplyPluralBoardMessage[];
+};
+
 type SimplyPluralUser = {
   isAsystem: boolean;
   username?: string;
@@ -52,6 +280,7 @@ type SimplyPluralMember = {
   pronouns?: string;
   color?: string;
   avatarUuid?: string;
+  avatarUrl?: string;
   privacyBucketId?: string;
   info?: Record<string, unknown>;
 };
@@ -169,6 +398,28 @@ const isSimplyPluralImportPayload = (
   );
 };
 
+const isAmpersandImportPayload = (
+  value: unknown,
+): value is AmpersandImportPayload => {
+  if (!isRecord(value) || !isRecord(value.database)) {
+    return false;
+  }
+
+  return (
+    Array.isArray(value.database.boardMessages) &&
+    Array.isArray(value.database.frontingEntries) &&
+    Array.isArray(value.database.journalPosts) &&
+    Array.isArray(value.database.members) &&
+    Array.isArray(value.database.reminders) &&
+    Array.isArray(value.database.systems) &&
+    Array.isArray(value.database.tags) &&
+    Array.isArray(value.database.assets) &&
+    Array.isArray(value.database.customFields) &&
+    Array.isArray(value.database.notes) &&
+    Array.isArray(value.database.filterQueries)
+  );
+};
+
 @Injectable()
 export class ImportService {
   private readonly logger = new Logger(ImportService.name);
@@ -274,12 +525,102 @@ export class ImportService {
     };
   }
 
+  importFromAmpersand(user: User, data: unknown) {
+    const importId = randomUUID();
+    void this.publishImportEvent(user.id, {
+      event: REDIS_EVENTS.IMPORT_STARTED,
+      importId,
+    }).catch((error) => {
+      this.logger.error(
+        `Failed to publish start event for Ampersand import ${importId}`,
+        error instanceof Error ? error.stack : String(error),
+      );
+    });
+    void this.executeAmpersandImport(user, data)
+      .then(async (system) => {
+        await this.publishImportEvent(user.id, {
+          event: REDIS_EVENTS.IMPORT_COMPLETED,
+          importId,
+          systemId: system.id,
+        });
+      })
+      .catch(async (error) => {
+        await this.publishImportEvent(user.id, {
+          event: REDIS_EVENTS.IMPORT_FAILED,
+          importId,
+          error:
+            error instanceof Error ? error.message : 'Unknown import failure',
+        });
+        this.logger.error(
+          `Ampersand import ${importId} failed unexpectedly`,
+          error instanceof Error ? error.stack : String(error),
+        );
+      });
+
+    return {
+      message:
+        "L'import est en cours, vous recevrez une notification lorsque ce dernier sera fini",
+      importId,
+    };
+  }
+
   private getMinioUrl(): string {
     return buildMinioUrl({
       MINIO_ENDPOINT: this.configService.get<string>('MINIO_ENDPOINT'),
       MINIO_PORT: this.configService.get<string>('MINIO_PORT'),
       MINIO_USE_SSL: this.configService.get<string>('MINIO_USE_SSL'),
     });
+  }
+
+  private async uploadOptimizedImageFromSource(
+    source: string | undefined,
+    fileName: string,
+  ): Promise<string | undefined> {
+    if (!source) return undefined;
+
+    try {
+      let buffer: Buffer;
+
+      if (source.startsWith('data:')) {
+        const base64Index = source.indexOf('base64,');
+        if (base64Index === -1) return undefined;
+        buffer = Buffer.from(source.slice(base64Index + 7), 'base64');
+      } else {
+        const response = await axios.get<ArrayBuffer>(source, {
+          responseType: 'arraybuffer',
+        });
+        buffer = Buffer.from(new Uint8Array(response.data));
+      }
+
+      const metadata = await sharp(buffer).metadata();
+      if (
+        !metadata.format ||
+        !['jpeg', 'jpg', 'png', 'webp'].includes(metadata.format)
+      ) {
+        return undefined;
+      }
+
+      const optimizedBuffer = await sharp(buffer)
+        .resize(512, 512, { fit: 'inside' })
+        .toFormat('webp', { quality: 80 })
+        .toBuffer();
+
+      await this.storageService.uploadFile(
+        MINIO_BUCKET_NAME,
+        fileName,
+        optimizedBuffer,
+        optimizedBuffer.length,
+        'image/webp',
+      );
+
+      return `${this.getMinioUrl()}/${MINIO_BUCKET_NAME}/${fileName}`;
+    } catch (error) {
+      this.logger.error(
+        `Failed to upload image ${fileName}`,
+        error instanceof Error ? error.stack : String(error),
+      );
+      return undefined;
+    }
   }
 
   private handleSimplyPluralApiError(error: unknown): never {
@@ -306,8 +647,6 @@ export class ImportService {
   }
 
   private async executeSimplyPluralImport(user: User, data: unknown) {
-    const minioUrl = this.getMinioUrl();
-
     if (!isSimplyPluralImportPayload(data)) {
       throw new BadRequestException();
     }
@@ -348,32 +687,10 @@ export class ImportService {
     );
 
     let avatarUrl: string | undefined = undefined;
-    if (spUser.avatarUrl) {
-      try {
-        const response = await axios.get<ArrayBuffer>(spUser.avatarUrl, {
-          responseType: 'arraybuffer',
-        });
-        const buffer = Buffer.from(new Uint8Array(response.data));
-        const metadata = await sharp(buffer).metadata();
-        if (['jpeg', 'jpg', 'png', 'webp'].includes(metadata.format)) {
-          const optimizedBuffer = await sharp(buffer)
-            .resize(512, 512, { fit: 'inside' })
-            .toFormat('webp', { quality: 80 })
-            .toBuffer();
-          const fileName = `avatars/systems/${system.id}/avatar/${Date.now()}.webp`;
-          await this.storageService.uploadFile(
-            MINIO_BUCKET_NAME,
-            fileName,
-            optimizedBuffer,
-            metadata.size,
-            'image/webp',
-          );
-          avatarUrl = `${minioUrl}/${MINIO_BUCKET_NAME}/${fileName}`;
-        }
-      } catch (error) {
-        console.error('Failed to upload system avatar:', error);
-      }
-    }
+    avatarUrl = await this.uploadOptimizedImageFromSource(
+      spUser.avatarUrl,
+      `avatars/systems/${system.id}/avatar/${Date.now()}.webp`,
+    );
 
     await this.prisma.system.update({
       where: { id: system.id },
@@ -519,41 +836,13 @@ export class ImportService {
       memberIdMap[member._id] = newMemberId;
 
       let avatarUrl: string | undefined = undefined;
-      if (member.avatarUuid) {
-        avatarUrl = `https://spaces.apparyllis.com/avatars/${member.uid}/${member.avatarUuid}`;
-      }
-
-      if (avatarUrl) {
-        try {
-          const response = await axios.get<ArrayBuffer>(avatarUrl, {
-            responseType: 'arraybuffer',
-          });
-          const buffer = Buffer.from(new Uint8Array(response.data));
-          const metadata = await sharp(buffer).metadata();
-          if (['jpeg', 'jpg', 'png', 'webp'].includes(metadata.format)) {
-            const optimizedBuffer = await sharp(buffer)
-              .resize(512, 512, { fit: 'inside' })
-              .toFormat('webp', { quality: 80 })
-              .toBuffer();
-            const fileName = `avatars/systems/${system.id}/members/${newMemberId}/${Date.now()}.webp`;
-            await this.storageService.uploadFile(
-              MINIO_BUCKET_NAME,
-              fileName,
-              optimizedBuffer,
-              metadata.size,
-              'image/webp',
-            );
-            avatarUrl = `${minioUrl}/${MINIO_BUCKET_NAME}/${fileName}`;
-          } else {
-            avatarUrl = undefined;
-          }
-        } catch (error) {
-          console.error(
-            `Failed to upload avatar for member ${member.name}:`,
-            error,
-          );
-          avatarUrl = undefined;
-        }
+      const sourceAvatar = member.avatarUrl || member.avatarUuid;
+      if (sourceAvatar) {
+        const fileName = `avatars/systems/${system.id}/members/${newMemberId}/${Date.now()}.webp`;
+        avatarUrl = await this.uploadOptimizedImageFromSource(
+          sourceAvatar,
+          fileName,
+        );
       }
 
       membersToCreate.push({
@@ -1212,6 +1501,96 @@ export class ImportService {
           message: message.content.message,
           writtenAt: message.content.writtenAt,
         })),
+    };
+
+    return this.executeSimplyPluralImport(user, simplyPluralData);
+  }
+
+  private async executeAmpersandImport(user: User, data: unknown) {
+    if (!isAmpersandImportPayload(data)) {
+      throw new BadRequestException();
+    }
+
+    const ampersandData = data;
+    const rootSystem =
+      ampersandData.database.systems.find((system) => !system.parent) ??
+      ampersandData.database.systems[0];
+
+    if (!rootSystem) {
+      throw new BadRequestException(errorCodes.IMPORT_DATA_INVALID_USER);
+    }
+
+    const boardMessages = ampersandData.database.boardMessages.map(
+      (message) => {
+        const writtenBy =
+          message.comments?.[0]?.member ??
+          message.members[0] ??
+          rootSystem.uuid;
+        const writtenFor =
+          message.members.find((memberId) => memberId !== writtenBy) ??
+          writtenBy;
+        const commentsText = (message.comments ?? [])
+          .map(
+            (comment) =>
+              `${comment.date}: ${comment.comment}${comment.replyTo ? ` (replyTo: ${comment.replyTo})` : ''}`,
+          )
+          .join('\n');
+
+        return {
+          writtenBy,
+          writtenFor,
+          read: message.isArchived,
+          message: [message.title, message.body, commentsText]
+            .filter((part) => part && part.trim().length > 0)
+            .join('\n\n'),
+          writtenAt: message.date,
+        };
+      },
+    );
+
+    const simplyPluralData: MappedAmpersandPayload = {
+      customFields: ampersandData.database.customFields.map((field) => ({
+        _id: field.uuid,
+        name: field.name,
+        type: 0,
+        order: `${field.priority}|`,
+      })),
+      users: [
+        {
+          isAsystem: true,
+          username: rootSystem.name,
+          desc: rootSystem.description,
+          avatarUrl: rootSystem.image,
+          color: rootSystem.color,
+          fields: {},
+        },
+      ],
+      notes: ampersandData.database.notes,
+      members: ampersandData.database.members.map((member) => ({
+        _id: member.uuid,
+        uid: member.uuid,
+        name: member.name,
+        desc: member.description,
+        pronouns: member.pronouns,
+        color: member.color,
+        avatarUrl: member.image,
+        privacyBucketId: undefined,
+        info: member.customFields ?? {},
+      })),
+      privateFront: {},
+      comments: [],
+      chatMessages: [],
+      groups: [],
+      privacyBuckets: [],
+      frontHistory: ampersandData.database.frontingEntries.map((session) => ({
+        member: session.member,
+        startTime: session.startTime,
+        endTime: session.endTime,
+        customStatus: session.customStatus ?? session.comment,
+      })),
+      channelCategories: [],
+      channels: [],
+      boardMessages,
     };
 
     return this.executeSimplyPluralImport(user, simplyPluralData);

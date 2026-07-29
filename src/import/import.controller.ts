@@ -20,7 +20,7 @@ export class ImportController {
   @UseGuards(AuthGuard)
   @Version('1')
   @HttpCode(HttpStatus.ACCEPTED)
-  async importFromSimplyPlural(@Body() data: any, @CurrentUser() user: User) {
+  importFromSimplyPlural(@Body() data: any, @CurrentUser() user: User) {
     return this.importService.importFromSimplyPlural(user, data);
   }
 
@@ -28,10 +28,18 @@ export class ImportController {
   @UseGuards(AuthGuard)
   @Version('1')
   @HttpCode(HttpStatus.ACCEPTED)
-  async importFromSimplyPluralApi(
+  importFromSimplyPluralApi(
     @Body() data: { apiKey: string },
     @CurrentUser() user: User,
   ) {
     return this.importService.importFromSimplyPluralApi(user, data);
+  }
+
+  @Post('ampersand')
+  @UseGuards(AuthGuard)
+  @Version('1')
+  @HttpCode(HttpStatus.ACCEPTED)
+  importFromAmpersand(@Body() data: any, @CurrentUser() user: User) {
+    return this.importService.importFromAmpersand(user, data);
   }
 }
