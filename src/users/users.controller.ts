@@ -13,6 +13,7 @@ import { AuthGuard } from 'src/auth/auth.guard';
 import { CurrentUser } from 'src/decorators/current-user.decorator';
 import { UpdateMeDto } from './dto/update-me.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
+import type { UserActiveFrontSession } from './users.service';
 
 @Controller('users')
 export class UsersController {
@@ -50,5 +51,15 @@ export class UsersController {
   @UseGuards(AuthGuard)
   async getUserById(@Param('id', ParseUUIDPipe) id: string) {
     return this.usersService.getUserById(id);
+  }
+
+  @Get(':id/front-sessions/active')
+  @Version('1')
+  @UseGuards(AuthGuard)
+  async getActiveFrontSessionsByUserId(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser('id') requesterId: string,
+  ): Promise<UserActiveFrontSession[]> {
+    return this.usersService.getActiveFrontSessionsByUserId(id, requesterId);
   }
 }

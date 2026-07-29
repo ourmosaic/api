@@ -1,4 +1,13 @@
-import { Body, Controller, Post, Get, Delete, UseGuards, Version, VERSION_NEUTRAL } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Post,
+  Get,
+  Delete,
+  UseGuards,
+  Version,
+  VERSION_NEUTRAL,
+} from '@nestjs/common';
 import { SafetyService } from './safety.service';
 import { AuthGuard } from '../auth/auth.guard';
 import { CurrentUser } from '../decorators/current-user.decorator';

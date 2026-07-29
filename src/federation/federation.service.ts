@@ -17,8 +17,9 @@ import { UsersService } from 'src/users/users.service';
 import {
   type AnyFederationMessage,
   FederationMessageType,
-  FriendRequestMessage,
   type FriendPermissionsMessage,
+  FriendRejectMessage,
+  FriendRequestMessage,
   type FriendshipPermissionFlags,
   FrontUpdateEvent,
   MessagesBefore,
@@ -603,6 +604,23 @@ export class FederationService {
 
         return { message: 'Friend accept processed successfully' };
       }
+
+      case FederationMessageType.FRIEND_REMOVAL: {
+        const recipientUser = await this.prisma.user.findUnique({
+          where: {
+            id: message.recipientId,
+          },
+        });
+        if (!recipientUser)
+          throw new BadRequestException('Recipient not found');
+        return await this.friendshipService.thoughtWeWereFriends(
+          recipientUser,
+          message.senderId,
+          true,
+          senderFederation,
+        );
+      }
+
       case FederationMessageType.FRIEND_REJECT: {
         const friendRejectMessage = message;
         const recipientUser = await this.prisma.user.findFirst({

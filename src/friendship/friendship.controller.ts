@@ -17,7 +17,11 @@ import type { User } from '@prisma/client';
 import { SendRequestDto } from './dto/sendRequest.dto';
 import { UpdateFriendshipTypeDto } from './dto/updateType.dto';
 import { UpdateFriendshipPermissionsDto } from './dto/updatePermissions.dto';
-import type { FriendSystemView } from './friendship.service';
+import type {
+  FriendSystemView,
+  FriendSystemWithSubsystems,
+  FriendActiveFrontSessionWithSystem,
+} from './friendship.service';
 
 @Controller('friendship')
 export class FriendshipController {
@@ -85,7 +89,20 @@ export class FriendshipController {
     @CurrentUser() user: User,
     @Param('friendId') friendId: string,
   ): Promise<FriendSystemView> {
-    return this.friendshipService.getFriendSystem(user, friendId);
+    return this.friendshipService.getFriendMainSystem(user, friendId);
+  }
+
+  @Get(':friendId/system')
+  @Version('2')
+  @UseGuards(AuthGuard)
+  getFriendSystemWithSubsystems(
+    @CurrentUser() user: User,
+    @Param('friendId') friendId: string,
+  ): Promise<FriendSystemWithSubsystems> {
+    return this.friendshipService.getFriendSystemsWithSubsystems(
+      user,
+      friendId,
+    );
   }
 
   @Get(':friendId/members')
@@ -143,5 +160,18 @@ export class FriendshipController {
     @Param('id') friendId: string,
   ): ReturnType<FriendshipService['thoughtWeWereFriends']> {
     return this.friendshipService.thoughtWeWereFriends(user, friendId);
+  }
+
+  @Get(':friendId/front-sessions')
+  @Version('2')
+  @UseGuards(AuthGuard)
+  getFriendAllActiveFrontSessions(
+    @CurrentUser() user: User,
+    @Param('friendId') friendId: string,
+  ): Promise<FriendActiveFrontSessionWithSystem[]> {
+    return this.friendshipService.getFriendAllActiveFrontSessions(
+      user,
+      friendId,
+    );
   }
 }

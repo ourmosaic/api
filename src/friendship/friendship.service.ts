@@ -18,6 +18,7 @@ import {
   FriendRejectMessage,
   FriendRequestMessage,
   type FriendPermissionsMessage,
+  FriendRemovalMessage,
 } from 'src/federation/federationDef';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { RedisService } from 'src/redis/redis.service';
@@ -81,6 +82,15 @@ export type FriendSystemView = {
   permissions: Omit<FriendshipPermissions, 'notifyMeOnFriendFrontChange'>;
   activeFrontSessions: ActiveFrontSession[];
   members: FriendVisibleMember[];
+};
+
+export type FriendSystemWithSubsystems = FriendSystemView & {
+  subsystems?: FriendSystemView[];
+};
+
+export type FriendActiveFrontSessionWithSystem = ActiveFrontSession & {
+  systemName: string;
+  systemId: string;
 };
 
 const caseInsensitiveUsername = (username: string) => ({
@@ -310,7 +320,23 @@ export class FriendshipService {
     return { requestId, status: newStatus };
   }
 
-  async thoughtWeWereFriends(user: UserType, friendId: string) {
+  async thoughtWeWereFriends(
+    user: UserType,
+    friendId: string,
+    isDistant: boolean = false,
+    federation?: string,
+  ) {
+    if (isDistant) {
+      const presentUser = await this.prisma.user.findFirst({
+        where: {
+          distantId: friendId,
+          isFederated: true,
+          domain: federation?.replace(/https?:\/\//g, '').split('/')[0],
+        },
+      });
+      if (!presentUser) throw new NotFoundException('User not found in base');
+      friendId = presentUser.id;
+    }
     const friendship = await this.prisma.friendship.findMany({
       where: {
         OR: [
@@ -321,6 +347,26 @@ export class FriendshipService {
     });
     if (!friendship || friendship.length === 0) {
       throw new BadRequestException(errorCodes.FRIENDSHIP_NOT_FOUND);
+    }
+    const userTwoId =
+      friendship[0].userOneId == user.id
+        ? friendship[0].userTwoId
+        : friendship[0].userOneId;
+    const userTwo = await this.prisma.user.findUnique({
+      where: {
+        id: userTwoId,
+      },
+    });
+    if (userTwo?.isFederated) {
+      const message: FriendRemovalMessage = {
+        type: FederationMessageType.FRIEND_REMOVAL,
+        timestamp: Date.now(),
+        targetFederation: userTwo.domain!,
+        distantId: userTwo.distantId!,
+        senderId: user.id,
+        recipientId: userTwo.distantId!,
+      };
+      await this.federationService.enqueueMessage(message);
     }
     await this.prisma.friendship.deleteMany({
       where: { OR: friendship.map((f) => ({ id: f.id })) },
@@ -348,7 +394,7 @@ export class FriendshipService {
           select: {
             id: true,
             username: true,
-            system: true,
+            systems: true,
             isSystem: true,
           },
         },
@@ -356,7 +402,7 @@ export class FriendshipService {
           select: {
             id: true,
             username: true,
-            system: true,
+            systems: true,
             isSystem: true,
           },
         },
@@ -367,7 +413,7 @@ export class FriendshipService {
     );
     return this.prisma.user.findMany({
       where: { id: { in: friendIds } },
-      select: { id: true, username: true, system: true, isSystem: true },
+      select: { id: true, username: true, systems: true, isSystem: true },
     });
   }
 
@@ -432,7 +478,7 @@ export class FriendshipService {
     return updated;
   }
 
-  async getFriendSystem(
+  async getFriendMainSystem(
     user: UserType,
     friendId: string,
   ): Promise<FriendSystemView> {
@@ -448,8 +494,11 @@ export class FriendshipService {
       throw new BadRequestException(errorCodes.FRIENDSHIP_NOT_FOUND);
     }
 
-    const system = await this.prisma.system.findUnique({
-      where: { userId: friendId },
+    const system = await this.prisma.system.findFirst({
+      where: {
+        userId: friendId,
+        parentSystemId: null,
+      },
     });
 
     if (!system) {
@@ -522,8 +571,8 @@ export class FriendshipService {
       return [];
     }
 
-    const system = await this.prisma.system.findUnique({
-      where: { userId: friendId },
+    const system = await this.prisma.system.findFirst({
+      where: { userId: friendId, parentSystemId: null },
     });
 
     if (!system) {
@@ -610,5 +659,217 @@ export class FriendshipService {
       status: req.status,
       createdAt: req.createdAt,
     }));
+  }
+
+  async getFriendSystemsWithSubsystems(
+    user: UserType,
+    friendId: string,
+  ): Promise<FriendSystemWithSubsystems> {
+    const friendship = (await this.prisma.friendship.findFirst({
+      where: {
+        userOneId: friendId,
+        userTwoId: user.id,
+        status: FriendshipStatus.ACCEPTED,
+      },
+    })) as FriendshipWithPermissions | null;
+
+    if (!friendship) {
+      throw new BadRequestException(errorCodes.FRIENDSHIP_NOT_FOUND);
+    }
+
+    // Get main system + all subsystems
+    const systems = await this.prisma.system.findMany({
+      where: {
+        userId: friendId,
+      },
+      orderBy: [
+        { parentSystemId: 'asc' }, // Root systems first
+        { customName: 'asc' },
+      ],
+    });
+
+    if (!systems || systems.length === 0) {
+      throw new NotFoundException(errorCodes.USER_HAS_NO_SYSTEM);
+    }
+
+    // Find main system (parentSystemId: null)
+    const mainSystem = systems.find((s) => s.parentSystemId === null);
+    if (!mainSystem) {
+      throw new NotFoundException(errorCodes.USER_HAS_NO_SYSTEM);
+    }
+
+    // Get subsystems
+    const subsystems = systems.filter((s) => s.parentSystemId !== null);
+
+    // Fetch data for main system
+    const [mainActiveSessions, mainMembers] = await Promise.all([
+      friendship.canViewFront
+        ? (this.prisma.frontSession.findMany({
+            where: {
+              systemId: mainSystem.id,
+              endTime: null,
+            },
+            orderBy: {
+              startTime: 'asc',
+            },
+            include: {
+              member: {
+                include: {
+                  groups: true,
+                },
+              },
+            },
+          }) as unknown as Promise<ActiveFrontSessionRow[]>)
+        : Promise.resolve([] as ActiveFrontSessionRow[]),
+      friendship.canViewSharedMembers
+        ? this.getVisibleMembersForFriendSystem(mainSystem.id, true)
+        : Promise.resolve([] as FriendVisibleMember[]),
+    ]);
+
+    const mainSystemView: FriendSystemView = {
+      id: mainSystem.id,
+      customName: mainSystem.customName,
+      avatarUrl: mainSystem.avatarUrl,
+      description: mainSystem.description,
+      color: mainSystem.color,
+      frontPrivacy: mainSystem.frontPrivacy,
+      permissions: {
+        canViewFront: friendship.canViewFront,
+        canReceiveFrontNotifications: friendship.canReceiveFrontNotifications,
+        canViewSharedMembers: friendship.canViewSharedMembers,
+      },
+      activeFrontSessions: mainActiveSessions.map((session) => ({
+        sessionId: session.id,
+        member: session.member,
+        startTime: session.startTime,
+      })),
+      members: mainMembers,
+    };
+
+    // Fetch data for subsystems
+    const subsystemsData = await Promise.all(
+      subsystems.map(async (subsystem) => {
+        const [activeSessions, members] = await Promise.all([
+          friendship.canViewFront
+            ? (this.prisma.frontSession.findMany({
+                where: {
+                  systemId: subsystem.id,
+                  endTime: null,
+                },
+                orderBy: {
+                  startTime: 'asc',
+                },
+                include: {
+                  member: {
+                    include: {
+                      groups: true,
+                    },
+                  },
+                },
+              }) as unknown as Promise<ActiveFrontSessionRow[]>)
+            : Promise.resolve([] as ActiveFrontSessionRow[]),
+          friendship.canViewSharedMembers
+            ? this.getVisibleMembersForFriendSystem(subsystem.id, true)
+            : Promise.resolve([] as FriendVisibleMember[]),
+        ]);
+
+        return {
+          id: subsystem.id,
+          customName: subsystem.customName,
+          avatarUrl: subsystem.avatarUrl,
+          description: subsystem.description,
+          color: subsystem.color,
+          frontPrivacy: subsystem.frontPrivacy,
+          permissions: {
+            canViewFront: friendship.canViewFront,
+            canReceiveFrontNotifications:
+              friendship.canReceiveFrontNotifications,
+            canViewSharedMembers: friendship.canViewSharedMembers,
+          },
+          activeFrontSessions: activeSessions.map((session) => ({
+            sessionId: session.id,
+            member: session.member,
+            startTime: session.startTime,
+          })),
+          members,
+        } as FriendSystemView;
+      }),
+    );
+
+    return {
+      ...mainSystemView,
+      subsystems: subsystemsData,
+    };
+  }
+
+  async getFriendAllActiveFrontSessions(
+    user: UserType,
+    friendId: string,
+  ): Promise<FriendActiveFrontSessionWithSystem[]> {
+    const friendship = (await this.prisma.friendship.findFirst({
+      where: {
+        userOneId: friendId,
+        userTwoId: user.id,
+        status: FriendshipStatus.ACCEPTED,
+      },
+    })) as FriendshipWithPermissions | null;
+
+    if (!friendship) {
+      throw new BadRequestException(errorCodes.FRIENDSHIP_NOT_FOUND);
+    }
+
+    if (!friendship.canViewFront) {
+      return [];
+    }
+
+    // Get all systems for the friend
+    const systems = await this.prisma.system.findMany({
+      where: {
+        userId: friendId,
+      },
+      select: {
+        id: true,
+        customName: true,
+        parentSystemId: true,
+      },
+    });
+
+    if (!systems || systems.length === 0) {
+      return [];
+    }
+
+    // Get all active front sessions across all systems
+    const allSessions = await this.prisma.frontSession.findMany({
+      where: {
+        systemId: { in: systems.map((s) => s.id) },
+        endTime: null,
+      },
+      orderBy: {
+        startTime: 'asc',
+      },
+      include: {
+        member: {
+          include: {
+            groups: true,
+          },
+        },
+      },
+    });
+
+    // Map systems to name lookup
+    const systemNameMap = new Map(
+      systems.map((s) => [s.id, s.customName || 'Main System']),
+    );
+
+    // Combine sessions with system names
+    return (allSessions as unknown as ActiveFrontSessionRow[]).map(
+      (session) => ({
+        sessionId: session.id,
+        member: session.member,
+        startTime: session.startTime,
+        systemName: systemNameMap.get(session.member.systemId) || 'Unknown',
+        systemId: session.member.systemId,
+      }),
+    );
   }
 }

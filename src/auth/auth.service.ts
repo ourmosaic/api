@@ -208,7 +208,7 @@ export class AuthService {
         createdAt: true,
         updatedAt: true,
         isSystem: true,
-        system: true,
+        systems: true,
       },
     });
     if (!user) {

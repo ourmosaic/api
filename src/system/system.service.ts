@@ -13,6 +13,7 @@ import { StorageService } from 'src/storage/storage.service';
 import { buildMinioUrl, MINIO_BUCKET_NAME } from 'src/utils/constants';
 import sharp from 'sharp';
 import { UpdateSystemDto } from 'src/@generated/prisma-nestjs-dto/update-system.dto';
+import { CreateSystemOrSubSystemDto } from './dto/createSystemOrSubSystem.dto';
 
 @Injectable()
 export class SystemService {
@@ -43,7 +44,7 @@ export class SystemService {
         isSystem: true,
       },
     });
-    return await this.prismaService.system.create({
+    return this.prismaService.system.create({
       data: {
         customName: createSystemDto.customName || user.username,
         description: createSystemDto.description,
@@ -52,10 +53,74 @@ export class SystemService {
     });
   }
 
+  async createSystemOrSubSystem(
+    createSystemDto: CreateSystemOrSubSystemDto,
+    user: User,
+  ): Promise<System> {
+    if (!createSystemDto.parent) {
+      if (user.isSystem)
+        throw new BadRequestException(errorCodes.USER_ALREADY_HAS_SYSTEM);
+      await this.prismaService.user.update({
+        where: {
+          id: user.id,
+        },
+        data: {
+          isSystem: true,
+        },
+      });
+      return this.prismaService.system.create({
+        data: {
+          customName: createSystemDto.customName || user.username,
+          description: createSystemDto.description,
+          userId: user.id,
+        },
+      });
+    }
+    const parentSys = await this.prismaService.system.findFirst({
+      where: {
+        id: createSystemDto.parent,
+        userId: user.id,
+      },
+    });
+    if (!parentSys) {
+      throw new BadRequestException(
+        'The specified parent system does not exist.',
+      );
+    }
+    return this.prismaService.system.create({
+      data: {
+        customName:
+          createSystemDto.customName || `${parentSys.customName}'s Subsystem`,
+        description: createSystemDto.description,
+        userId: user.id,
+        parentSystemId: parentSys.id,
+      },
+    });
+  }
+
+  async getSystemByIdAndUser(id: string, user: User) {
+    if (id == '@me') {
+      return this.getSystemByUser(user);
+    }
+    const system = await this.prismaService.system.findFirst({
+      where: {
+        id,
+        userId: user.id,
+      },
+    });
+
+    if (!system) {
+      throw new NotFoundException(errorCodes.SYSTEM_NOT_FOUND);
+    }
+
+    return system;
+  }
+
   async getSystemByUser(user: User) {
     const system = await this.prismaService.system.findFirst({
       where: {
         userId: user.id,
+        parentSystemId: null,
       },
     });
 
@@ -64,6 +129,74 @@ export class SystemService {
     }
 
     return system;
+  }
+
+  async getSystemsByUser(user: User) {
+    const systems = await this.prismaService.system.findMany({
+      where: {
+        userId: user.id,
+      },
+    });
+
+    if (!systems || systems.length === 0) {
+      throw new NotFoundException(errorCodes.USER_HAS_NO_SYSTEM);
+    }
+
+    return systems;
+  }
+
+  async transferMemberToSubSystem(
+    memberId: string,
+    sourceSystem: System,
+    targetSystemId: string,
+  ): Promise<System> {
+    if (sourceSystem.id === targetSystemId) {
+      throw new BadRequestException(errorCodes.TARGET_SYSTEM_MUST_BE_SUBSYSTEM);
+    }
+
+    const targetSystem = await this.prismaService.system.findFirst({
+      where: {
+        id: targetSystemId,
+        userId: sourceSystem.userId,
+      },
+    });
+
+    if (!targetSystem) {
+      throw new NotFoundException(errorCodes.TARGET_SYSTEM_MUST_BE_SUBSYSTEM);
+    }
+
+    const member = await this.prismaService.member.findUnique({
+      where: {
+        id: memberId,
+      },
+    });
+
+    if (!member || member.systemId !== sourceSystem.id) {
+      throw new NotFoundException(errorCodes.MEMBER_NOT_FOUND_IN_SYSTEM);
+    }
+
+    const activeSessions = await this.prismaService.frontSession.findMany({
+      where: {
+        memberId,
+        systemId: sourceSystem.id,
+        endTime: null,
+      },
+    });
+
+    await this.prismaService.$transaction([
+      this.prismaService.member.update({
+        where: { id: memberId },
+        data: { systemId: targetSystem.id },
+      }),
+      ...activeSessions.map((session) =>
+        this.prismaService.frontSession.update({
+          where: { id: session.id },
+          data: { systemId: targetSystem.id },
+        }),
+      ),
+    ]);
+
+    return targetSystem;
   }
 
   async getSystemById(id: string) {
@@ -95,6 +228,43 @@ export class SystemService {
         isSystem: false,
       },
     });
+  }
+
+  async deleteSystemByIdAndUser(id: string, user: User) {
+    const system = await this.prismaService.system.findFirst({
+      where: {
+        id,
+        userId: user.id,
+      },
+    });
+
+    if (!system) {
+      throw new NotFoundException(errorCodes.SYSTEM_NOT_FOUND);
+    }
+
+    await this.prismaService.system.delete({
+      where: {
+        id: system.id,
+      },
+    });
+
+    // If the deleted system was the user's main system, update isSystem to false
+    const remainingSystems = await this.prismaService.system.findMany({
+      where: {
+        userId: user.id,
+      },
+    });
+
+    if (remainingSystems.length === 0) {
+      await this.prismaService.user.update({
+        where: {
+          id: user.id,
+        },
+        data: {
+          isSystem: false,
+        },
+      });
+    }
   }
 
   async createCustomFieldForSystem(

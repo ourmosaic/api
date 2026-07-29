@@ -21,4 +21,3 @@ export class UnblockDto {
   @IsString({ message: errorCodes.BLOCK_TARGET_ID_INVALID })
   targetId: string;
 }
-
