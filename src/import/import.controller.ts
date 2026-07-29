@@ -24,7 +24,11 @@ export class ImportController {
   @UseGuards(AuthGuard)
   @Version('1')
   @HttpCode(HttpStatus.ACCEPTED)
-  @UseInterceptors(FileInterceptor('file'))
+  @UseInterceptors(
+    FileInterceptor('file', {
+      limits: { fileSize: 1024 * 1024 * 500 },
+    }),
+  )
   importFromSimplyPlural(
     @Body() data: unknown,
     @UploadedFile() file: Express.Multer.File | undefined,
@@ -57,7 +61,9 @@ export class ImportController {
   @UseGuards(AuthGuard)
   @Version('1')
   @HttpCode(HttpStatus.ACCEPTED)
-  @UseInterceptors(FileInterceptor('file'))
+  @UseInterceptors(
+    FileInterceptor('file', { limits: { fileSize: 1024 * 1024 * 500 } }),
+  )
   importFromAmpersand(
     @Body() data: unknown,
     @UploadedFile() file: Express.Multer.File | undefined,
