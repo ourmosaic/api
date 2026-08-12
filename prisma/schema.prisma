@@ -152,6 +152,7 @@ model User {
   domain      String?
   distantId   String?
   fedePerms   Int      @default(0) // permissions sur la fede (bitfield)
+  friendCode  String?  @unique
 
   isSystem Boolean  @default(false) // Permet de savoir rapidement si l'utilisateur est un système
   systems  System[]
