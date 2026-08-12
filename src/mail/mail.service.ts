@@ -48,7 +48,7 @@ export class MailService {
     return transporter.verify();
   }
 
-  async sendMail(to: string, subject: string, html: string) {
+  async sendMail(to: string, subject: string, html: string, attachments?: any[]) {
     const transporter = nodemailer.createTransport({
       host: this.configService.get<string>('SMTP_HOST'),
       port: this.configService.get<number>('SMTP_PORT'),
@@ -63,6 +63,7 @@ export class MailService {
       to,
       html,
       subject,
+      attachments,
     });
   }
 }

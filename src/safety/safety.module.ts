@@ -4,10 +4,16 @@ import { PrismaModule } from '../prisma/prisma.module';
 import { AuthModule } from '../auth/auth.module';
 import { SafetyService } from './safety.service';
 import { FederationModule } from '../federation/federation.module';
+import { MailModule } from '../mail/mail.module';
 
 @Module({
   controllers: [SafetyController],
-  imports: [PrismaModule, AuthModule, forwardRef(() => FederationModule)],
+  imports: [
+    PrismaModule,
+    AuthModule,
+    MailModule,
+    forwardRef(() => FederationModule),
+  ],
   providers: [SafetyService],
 })
 export class SafetyModule {}
