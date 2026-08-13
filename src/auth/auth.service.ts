@@ -9,6 +9,9 @@ import { LoginDto } from './dto/login.dto';
 import type { AuthenticationResponseDto } from './dto/authentication.result.dto';
 import errorCodes from 'src/utils/errorCodes';
 import type { Request } from 'express';
+import { MailService } from '../mail/mail.service';
+import RegisterTemplate from '../templates/register.template';
+import { ConfigService } from '@nestjs/config';
 
 type CryptoChallenge = {
   id: string;
@@ -61,6 +64,8 @@ export class AuthService {
     private readonly jwtService: JwtService,
     private readonly redisService: RedisService,
     private readonly prismaService: PrismaService,
+    private readonly mailService: MailService,
+    private readonly configService: ConfigService,
   ) {}
 
   async getPowChallenge(): Promise<CryptoChallenge> {
@@ -141,13 +146,29 @@ export class AuthService {
       throw new UnauthorizedException(errorCodes.USER_ALREADY_EXISTS);
     }
 
+    const emailVerificationToken = crypto.randomBytes(32).toString('hex');
+
     const newUser = await this.prismaService.user.create({
       data: {
         email: data.email,
         username: data.username,
         password: await argon2id.hash(data.password),
+        emailVerificationToken,
       },
     });
+
+    const registerTemplate = new RegisterTemplate();
+    const html = registerTemplate.render({
+      user_name: data.username,
+      instance_name: this.configService.get<string>('INSTANCE_NAME')!,
+      activation_link: `${this.configService.get<string>('FRONTEND_URL')}/auth/verify-email?token=${emailVerificationToken}`,
+    });
+
+    await this.mailService.sendMail(
+      `"${data.username}" <${data.email}>`,
+      registerTemplate.getTitle(),
+      html,
+    );
 
     return this.generateTokensForUser(newUser.id);
   }
