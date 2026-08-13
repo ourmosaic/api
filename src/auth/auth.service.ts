@@ -71,7 +71,7 @@ export class AuthService {
   async getPowChallenge(): Promise<CryptoChallenge> {
     const challengeId = crypto.randomUUID();
     const nonce = crypto.randomBytes(16).toString('hex');
-    const difficulty = Math.floor(Math.random() * 4) + 14;
+    const difficulty = Math.floor(Math.random() * 4) + 10;
     const validity = 120;
     const challenge: CryptoChallenge = {
       id: challengeId,
