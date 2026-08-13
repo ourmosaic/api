@@ -21,7 +21,7 @@ type CryptoChallenge = {
 export class AuthService {
   private readonly accessTokenExpiry = 7 * 24 * 60 * 60;
   private readonly refreshTokenExpiry = 90 * 24 * 60 * 60;
-  private readonly redisPrefix = 'auth:';
+  readonly redisPrefix = 'auth:';
   private readonly redisRefreshTokenPrefix = 'refresh:';
   private readonly redisAccessTokenPrefix = 'access:';
 
@@ -122,7 +122,7 @@ export class AuthService {
       solutionTokenKey,
       JSON.stringify({ challengeId, solution }),
       'EX',
-      60,
+      5 * 60,
     );
     const solutionJwt = this.jwtService.generateAccessToken(solutionToken);
     return {

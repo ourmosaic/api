@@ -18,6 +18,7 @@ import type { Request } from 'express';
 import type { User } from '@prisma/client';
 import { RefreshTokenDto } from './dto/refreshToken.dto';
 import { CurrentUser } from '../decorators/current-user.decorator';
+import { PowGuard } from './pow.guard';
 
 @Controller('auth')
 export class AuthController {
@@ -48,9 +49,27 @@ export class AuthController {
     return this.authService.registerUser(registerDto);
   }
 
+  @Version('2')
+  @Post('register')
+  @UseGuards(PowGuard)
+  async registerV2(
+    @Body() registerDto: RegisterDto,
+  ): Promise<AuthenticationResponseDto> {
+    return this.authService.registerUser(registerDto);
+  }
+
   @Version(VERSION_NEUTRAL)
   @Post('login')
   async login(@Body() loginDto: LoginDto): Promise<AuthenticationResponseDto> {
+    return this.authService.login(loginDto);
+  }
+
+  @Version('2')
+  @Post('login')
+  @UseGuards(PowGuard)
+  async loginV2(
+    @Body() loginDto: LoginDto,
+  ): Promise<AuthenticationResponseDto> {
     return this.authService.login(loginDto);
   }
 
