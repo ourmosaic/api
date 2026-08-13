@@ -5,6 +5,7 @@ import { AuthModule } from '../auth/auth.module';
 import { SafetyService } from './safety.service';
 import { FederationModule } from '../federation/federation.module';
 import { MailModule } from '../mail/mail.module';
+import { RedisModule } from '../redis/redis.module';
 
 @Module({
   controllers: [SafetyController],
@@ -12,6 +13,7 @@ import { MailModule } from '../mail/mail.module';
     PrismaModule,
     AuthModule,
     MailModule,
+    RedisModule,
     forwardRef(() => FederationModule),
   ],
   providers: [SafetyService],

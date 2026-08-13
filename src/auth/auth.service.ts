@@ -10,6 +10,13 @@ import type { AuthenticationResponseDto } from './dto/authentication.result.dto'
 import errorCodes from 'src/utils/errorCodes';
 import type { Request } from 'express';
 
+type CryptoChallenge = {
+  id: string;
+  nonce: string;
+  difficulty: number;
+  validity: number;
+};
+
 @Injectable()
 export class AuthService {
   private readonly accessTokenExpiry = 7 * 24 * 60 * 60;
@@ -55,6 +62,74 @@ export class AuthService {
     private readonly redisService: RedisService,
     private readonly prismaService: PrismaService,
   ) {}
+
+  async getPowChallenge(): Promise<CryptoChallenge> {
+    const challengeId = crypto.randomUUID();
+    const nonce = crypto.randomBytes(16).toString('hex');
+    const difficulty = Math.floor(Math.random() * 4) + 14;
+    const validity = 120;
+    const challenge: CryptoChallenge = {
+      id: challengeId,
+      nonce,
+      difficulty,
+      validity,
+    };
+    const redisChallengeKey = `${this.redisPrefix}pow:challenge:${challengeId}`;
+    await this.redisService.set(
+      redisChallengeKey,
+      JSON.stringify(challenge),
+      'EX',
+      validity,
+    );
+    return {
+      id: challengeId,
+      nonce,
+      difficulty,
+      validity,
+    };
+  }
+
+  async validatePowSolution(
+    challengeId: string,
+    solution: string,
+  ): Promise<{ valid: boolean; token: string | null }> {
+    const redisChallengeKey = `${this.redisPrefix}pow:challenge:${challengeId}`;
+    const challengeString = await this.redisService.get(redisChallengeKey);
+    if (!challengeString) {
+      return { valid: false, token: null };
+    }
+    const challenge: CryptoChallenge = JSON.parse(
+      challengeString,
+    ) as CryptoChallenge;
+    const hash = crypto
+      .createHash('md5')
+      .update(challenge.nonce + solution)
+      .digest('hex');
+    const hashBinary = BigInt('0x' + hash)
+      .toString(2)
+      .padStart(128, '0');
+    const leadingZeros = hashBinary.match(/^0*/)?.[0].length ?? 0;
+    if (leadingZeros < challenge.difficulty) {
+      return {
+        valid: false,
+        token: null,
+      };
+    }
+    await this.redisService.del(redisChallengeKey);
+    const solutionToken = crypto.randomBytes(32).toString('hex');
+    const solutionTokenKey = `${this.redisPrefix}pow:solution:${solutionToken}`;
+    await this.redisService.set(
+      solutionTokenKey,
+      JSON.stringify({ challengeId, solution }),
+      'EX',
+      60,
+    );
+    const solutionJwt = this.jwtService.generateAccessToken(solutionToken);
+    return {
+      valid: true,
+      token: solutionJwt,
+    };
+  }
 
   async registerUser(data: RegisterDto): Promise<AuthenticationResponseDto> {
     const existingUser = await this.prismaService.user.findFirst({

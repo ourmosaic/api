@@ -24,6 +24,23 @@ export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
   @Version(VERSION_NEUTRAL)
+  @Get('pow/challenge')
+  async getPowChallenge() {
+    return this.authService.getPowChallenge();
+  }
+
+  @Version(VERSION_NEUTRAL)
+  @Post('pow/challenge/verify')
+  async verifyPowChallenge(
+    @Body() verifyDto: { challengeId: string; solution: string },
+  ) {
+    return this.authService.validatePowSolution(
+      verifyDto.challengeId,
+      verifyDto.solution,
+    );
+  }
+
+  @Version(VERSION_NEUTRAL)
   @Post('register')
   async register(
     @Body() registerDto: RegisterDto,
