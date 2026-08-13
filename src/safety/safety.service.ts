@@ -445,8 +445,189 @@ export class SafetyService {
     });
   }
 
+  async harvestData(userId: string) {
+    return this.prisma.$transaction(async (tx) => {
+      const user = await tx.user.findUnique({
+        where: { id: userId },
+        select: {
+          id: true,
+          username: true,
+          email: true,
+          createdAt: true,
+          updatedAt: true,
+          isFederated: true,
+          domain: true,
+          distantId: true,
+          isSystem: true,
+        },
+      });
+
+      if (!user) {
+        throw new BadRequestException('User not found');
+      }
+
+      const systems = await tx.system.findMany({
+        where: { userId },
+        include: {
+          members: {
+            include: {
+              customFieldValues: {
+                include: {
+                  customField: true,
+                },
+              },
+              frontSessions: true,
+              groups: {
+                include: {
+                  group: true,
+                },
+              },
+              chatMessages: true,
+              boardMessagesSent: true,
+              boardMessagesReceived: true,
+            },
+          },
+          groups: {
+            include: {
+              members: true,
+            },
+          },
+          customFields: {
+            include: {
+              values: true,
+            },
+          },
+          channels: {
+            include: {
+              category: true,
+              chatMessages: true,
+            },
+          },
+          channelCategories: true,
+          frontSessions: true,
+          childSystems: true,
+        },
+      });
+
+      const sentFriendRequests = await tx.friendship.findMany({
+        where: { userOneId: userId },
+        include: {
+          userTwo: {
+            select: {
+              id: true,
+              username: true,
+              email: true,
+              isFederated: true,
+              domain: true,
+            },
+          },
+        },
+      });
+
+      const receivedFriendRequests = await tx.friendship.findMany({
+        where: { userTwoId: userId },
+        include: {
+          userOne: {
+            select: {
+              id: true,
+              username: true,
+              email: true,
+              isFederated: true,
+              domain: true,
+            },
+          },
+        },
+      });
+
+      const reports = await tx.report.findMany({
+        where: { reporterId: userId },
+        include: {
+          ReportUser: true,
+          ReportMember: true,
+          ReportSystem: true,
+        },
+      });
+
+      const blockedUsers = await tx.blockedUser.findMany({
+        where: { blockerId: userId },
+        include: {
+          blocked: {
+            select: {
+              id: true,
+              username: true,
+            },
+          },
+        },
+      });
+
+      const blockedMembers = await tx.blockedMember.findMany({
+        where: { blockerId: userId },
+        include: {
+          blocked: {
+            select: {
+              id: true,
+              name: true,
+              pronouns: true,
+            },
+          },
+        },
+      });
+
+      const blockedSystems = await tx.blockedSystem.findMany({
+        where: { blockerId: userId },
+        include: {
+          blocked: {
+            select: {
+              id: true,
+              customName: true,
+              userId: true,
+            },
+          },
+        },
+      });
+
+      return {
+        user,
+        systems,
+        friendships: {
+          sent: sentFriendRequests,
+          received: receivedFriendRequests,
+        },
+        reports,
+        blocks: {
+          users: blockedUsers,
+          members: blockedMembers,
+          systems: blockedSystems,
+        },
+        exportDate: new Date().toISOString(),
+      };
+    });
+  }
+
+  private async processDataExport(userId: string) {
+    const harvestedData = await this.harvestData(userId);
+    const jsonData = JSON.stringify(harvestedData, null, 2);
+
+    const dte = new DataExportTemplate();
+    await this.mailService.sendMail(
+      `"${harvestedData.user.username.replace(/"/g, "'")}" <${harvestedData.user.email}>`,
+      dte.getTitle(),
+      dte.render({
+        user_name: harvestedData.user.username,
+        instance_name: this.configService.get<string>('INSTANCE_NAME')!,
+      }),
+      [
+        {
+          filename: `mosaic_export_${harvestedData.user.username}_${new Date().toISOString().split('T')[0]}.json`,
+          content: jsonData,
+          contentType: 'application/json',
+        },
+      ],
+    );
+  }
+
   async exportData(userId: string) {
-    const redisKey = `data_export:${userId}`;
+    const redisKey = `dataexport:${userId}`;
     const existingExport = await this.redisService.get(redisKey);
 
     if (existingExport) {
@@ -454,183 +635,13 @@ export class SafetyService {
         'You can only request a data export once every 24 hours. Please try again later.',
       );
     }
-
-    const user = await this.prisma.user.findUnique({
-      where: { id: userId },
-      select: {
-        id: true,
-        username: true,
-        email: true,
-        createdAt: true,
-        updatedAt: true,
-        isFederated: true,
-        domain: true,
-        distantId: true,
-        isSystem: true,
-      },
-    });
-
-    if (!user) {
-      throw new BadRequestException('User not found');
-    }
-
-    const systems = await this.prisma.system.findMany({
-      where: { userId },
-      include: {
-        members: {
-          include: {
-            customFieldValues: {
-              include: {
-                customField: true,
-              },
-            },
-            frontSessions: true,
-            groups: {
-              include: {
-                group: true,
-              },
-            },
-            chatMessages: true,
-            boardMessagesSent: true,
-            boardMessagesReceived: true,
-          },
-        },
-        groups: {
-          include: {
-            members: true,
-          },
-        },
-        customFields: {
-          include: {
-            values: true,
-          },
-        },
-        channels: {
-          include: {
-            category: true,
-            chatMessages: true,
-          },
-        },
-        channelCategories: true,
-        frontSessions: true,
-        childSystems: true,
-      },
-    });
-
-    const sentFriendRequests = await this.prisma.friendship.findMany({
-      where: { userOneId: userId },
-      include: {
-        userTwo: {
-          select: {
-            id: true,
-            username: true,
-            email: true,
-            isFederated: true,
-            domain: true,
-          },
-        },
-      },
-    });
-
-    const receivedFriendRequests = await this.prisma.friendship.findMany({
-      where: { userTwoId: userId },
-      include: {
-        userOne: {
-          select: {
-            id: true,
-            username: true,
-            email: true,
-            isFederated: true,
-            domain: true,
-          },
-        },
-      },
-    });
-
-    const reports = await this.prisma.report.findMany({
-      where: { reporterId: userId },
-      include: {
-        ReportUser: true,
-        ReportMember: true,
-        ReportSystem: true,
-      },
-    });
-
-    const blockedUsers = await this.prisma.blockedUser.findMany({
-      where: { blockerId: userId },
-      include: {
-        blocked: {
-          select: {
-            id: true,
-            username: true,
-          },
-        },
-      },
-    });
-
-    const blockedMembers = await this.prisma.blockedMember.findMany({
-      where: { blockerId: userId },
-      include: {
-        blocked: {
-          select: {
-            id: true,
-            name: true,
-            pronouns: true,
-          },
-        },
-      },
-    });
-
-    const blockedSystems = await this.prisma.blockedSystem.findMany({
-      where: { blockerId: userId },
-      include: {
-        blocked: {
-          select: {
-            id: true,
-            customName: true,
-            userId: true,
-          },
-        },
-      },
-    });
-
-    const exportData = {
-      user,
-      systems,
-      friendships: {
-        sent: sentFriendRequests,
-        received: receivedFriendRequests,
-      },
-      reports,
-      blocks: {
-        users: blockedUsers,
-        members: blockedMembers,
-        systems: blockedSystems,
-      },
-      exportDate: new Date().toISOString(),
-    };
-
-    const jsonData = JSON.stringify(exportData, null, 2);
-
-    const dte = new DataExportTemplate();
-    await this.mailService.sendMail(
-      `"${user.username.replace(/"/g, "'")}" <${user.email}>`,
-      dte.getTitle(),
-      dte.render({
-        user_name: user.username,
-        instance_name: this.configService.get<string>('INSTANCE_NAME')!,
-      }),
-      [
-        {
-          filename: `mosaic_export_${user.username}_${new Date().toISOString().split('T')[0]}.json`,
-          content: jsonData,
-          contentType: 'application/json',
-        },
-      ],
-    );
-
     await this.redisService.setex(redisKey, 86400, 'true');
 
-    return { success: true };
+    // L'export est déclenché en arrière-plan pour répondre immédiatement à l'API.
+    void this.processDataExport(userId).catch(async () => {
+      await this.redisService.del(redisKey);
+    });
+
+    return { success: true, message: 'Data export is in progress.' };
   }
 }

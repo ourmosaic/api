@@ -60,4 +60,11 @@ export class SafetyController {
   async getBlockedSystems(@CurrentUser('id') userId: string) {
     return this.safetyService.getBlockedSystems(userId);
   }
+
+  @Version(VERSION_NEUTRAL)
+  @Get('data/export')
+  @UseGuards(AuthGuard)
+  async exportData(@CurrentUser('id') userId: string) {
+    return this.safetyService.exportData(userId);
+  }
 }
