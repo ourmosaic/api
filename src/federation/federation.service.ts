@@ -121,6 +121,7 @@ export class FederationService {
     return {
       version: packageJsonRaw.version,
       publicKey: publicKey,
+      instanceName: this.configService.get<string>('INSTANCE_NAME'),
       legal: {
         privacy_policy:
           this.configService.get<string>('LEGAL_PRIVACY_POLICY_URL') || '',
