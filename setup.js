@@ -5,82 +5,180 @@ const fs = require('fs');
 const path = require('path');
 const ora = require('ora');
 
+const spinnerApi = ora.default ?? ora;
+const spinnerPresets = ora.spinners ?? spinnerApi.spinners;
+const dotsSpinner = spinnerPresets?.dots ?? 'dots';
+
 const rl = readline.createInterface({
     input: process.stdin,
-    output: process.stdout
+    output: process.stdout,
 });
+
+const setupFilePath = path.join(__dirname, 'setup.env');
+const privateKeyPath = path.join(__dirname, 'private.key');
+const publicKeyPath = path.join(__dirname, 'public.key');
 
 const locales = {
     fr: {
         welcome: "Bienvenue dans la configuration de l'API Mosaic",
-        chooseYourLanguage: "Choisissez votre langue ",
-        instanceAddr: "Entrez l'adresse de votre instance Mosaic",
-        invalidAddr: "Adresse invalide. Veuillez entrer une URL valide commençant par http:// ou https://",
-        allowRegistration: "Autoriser l'inscription des utilisateurs ? (oui/non)",
-        databaseUrl: "Entrez l'URL de la base de données... (laisser vide pour défaut)",
-        minioUrl: "Entrez le domaine MinIO... (laisser vide pour défaut)",
-        minioPort: "Entrez le port MinIO... (laisser vide pour défaut)",
-        shouldUseSsl: "Utiliser SSL pour la connexion MinIO ? (oui/non)",
-        minioUser: "Entrez le nom d'utilisateur MinIO... (laisser vide pour défaut)",
-        minioPassword: "Entrez le mot de passe MinIO... (laisser vide pour défaut)",
-        settingUp: "Configuration de l'API Mosaic en cours...",
-        setupComplete: "Configuration de l'API Mosaic terminée ! Votre configuration a été enregistrée dans setup.env. Vérifiez son contenu et renommez-le en .env avant de démarrer le serveur API.",
-        generatingKeys: "Génération des clés RSA pour votre instance...",
-        keysGenerated: "Clés RSA générées et enregistrées dans private.key et public.key !",
+        chooseYourLanguage: 'Choisissez votre langue (en/fr)',
+        instanceName: "Nom de l'instance Mosaic (par exemple api.ourmosaic.space)",
+        instanceAddr: "Adresse de fédération de l'instance (laisser vide pour reprendre le nom de l'instance)",
+        frontendUrl: 'URL du frontend public (par exemple https://ourmosaic.space)',
+        invalidUrl: 'Adresse invalide. Veuillez entrer une URL valide commençant par http:// ou https://',
+        databaseUrl: 'URL de la base de données',
+        redisUrl: 'URL Redis',
+        minioEndpoint: 'Hôte MinIO (vous pouvez coller une URL complète, elle sera normalisée)',
+        minioPort: 'Port MinIO',
+        minioUseSsl: 'Utiliser SSL pour MinIO ? (oui/non)',
+        minioAccessKey: "Clé d'accès MinIO",
+        minioSecretKey: 'Clé secrète MinIO',
+        smtpHost: 'Hôte SMTP',
+        smtpPort: 'Port SMTP',
+        smtpSecure: 'Utiliser une connexion SMTP sécurisée ? (oui/non)',
+        smtpUser: 'Utilisateur SMTP',
+        smtpPassword: 'Mot de passe SMTP',
+        settingUp: "Génération du fichier de configuration en cours...",
+        configSaved: `Configuration enregistrée dans ${path.basename(setupFilePath)}.`,
+        generatingKeys: 'Génération des clés RSA pour votre instance...',
+        keysGenerated: 'Clés RSA générées et enregistrées dans private.key et public.key !',
         important: "IMPORTANT : NE PARTAGEZ PAS VOTRE CLÉ PRIVÉE AVEC QUICONQUE. GARDEZ-LA EN SÉCURITÉ. SI VOTRE CLÉ PRIVÉE EST COMPROMISE, VOTRE INSTANCE PEUT ÊTRE À RISQUE.",
-        shouldRunPrisma: "Voulez-vous exécuter les migrations Prisma maintenant ? (oui/non)",
-        runningPrisma: "Exécution des migrations Prisma...",
-        runningGeneration: "Génération du client Prisma...",
-        prismaGenerated: "Client Prisma généré avec succès !",
-        prismaFailed: "Échec de l'exécution des migrations Prisma. Veuillez vérifier le message d'erreur ci-dessous et exécuter 'npx prisma migrate deploy' manuellement dans le répertoire src.",
-        generationFailed: "Échec de la génération du client Prisma. Veuillez vérifier le message d'erreur ci-dessous et exécuter 'npx prisma generate' manuellement dans le répertoire src.",
-        setupCompleteMessage: "La configuration est terminée ! Veuillez vérifier le fichier setup.env, le renommer en .env et démarrer votre serveur API Mosaic. Merci d'utiliser Mosaic !",
+        shouldRunPrisma: 'Voulez-vous exécuter les migrations Prisma maintenant ? (oui/non)',
+        runningPrisma: 'Exécution des migrations Prisma...',
+        runningGeneration: 'Génération du client Prisma...',
+        prismaGenerated: 'Opération Prisma terminée avec succès !',
+        prismaFailed: "Échec de l'opération Prisma. Vérifiez le message d'erreur ci-dessous et relancez les commandes manuellement si nécessaire.",
+        generationFailed: 'Échec de la génération du client Prisma. Vérifiez le message d’erreur ci-dessous.',
+        setupCompleteMessage: `La configuration est terminée ! Vérifiez le fichier ${path.basename(setupFilePath)}, renommez-le en .env puis démarrez votre serveur API Mosaic.`,
         env: {
-            welcome: "Bienvenue dans le fichier .env de l'API Mosaic. Vous pouvez modifier ces valeurs selon vos besoins.",
-            instanceAddr: "L'adresse où votre instance Mosaic sera accessible. Assurez-vous d'inclure le protocole (http:// ou https://).",
-            allowRegistration: "Définissez sur true pour permettre aux utilisateurs de s'inscrire eux-mêmes. Si false, personne ne peut créer de comptes utilisateur. Les administrateurs devront créer des comptes manuellement dans la base de données.",
-            databaseUrl: "URL de connexion à la base de données. La valeur par défaut est configurée pour une instance PostgreSQL locale.",
-            minio: "Configuration MinIO pour le stockage des avatars. Assurez-vous de définir ces valeurs en fonction de votre configuration MinIO.",
-            jwt: "Secrets JWT pour signer les tokens d'accès et de rafraîchissement. Ceux-ci sont générés aléatoirement lors de la configuration pour des raisons de sécurité."
-        }
+            databaseUrl: 'URL de connexion à la base de données.',
+            redisUrl: 'URL de connexion à Redis.',
+            jwt: 'Secrets JWT générés aléatoirement lors de la configuration.',
+            minio: 'Configuration MinIO pour le stockage des fichiers.',
+            smtp: 'Configuration SMTP utilisée pour les e-mails.',
+            instance: 'Identité publique de votre instance Mosaic.',
+            frontend: 'URL du frontend utilisée pour les liens d’activation.',
+        },
     },
     en: {
-        welcome: "Welcome to the Mosaic API setup",
-        chooseYourLanguage: "Choose your language ",
-        instanceAddr: "Enter the address for your Mosaic instance",
-        invalidAddr: "Invalid address. Please enter a valid URL starting with http:// or https://",
-        allowRegistration: "Allow user registration? (yes/no)",
-        databaseUrl: "Enter database URL... (blank for default)",
-        minioUrl: "Enter MinIO domain... (blank for default)",
-        minioPort: "Enter MinIO port... (blank for default)",
-        shouldUseSsl: "Use SSL for MinIO connection? (yes/no)",
-        minioUser: "Enter MinIO username... (blank for default)",
-        minioPassword: "Enter MinIO password... (blank for default)",
-        settingUp: "Setting up Mosaic API...",
-        setupComplete: "Mosaic API setup complete! Your configuration has been saved to setup.env. Review its contents and rename it to .env before starting the API server.",
-        generatingKeys: "Generating RSA keys for your instance...",
-        keysGenerated: "RSA keys generated and saved to private.key and public.key!",
-        important: "IMPORTANT: DO NOT SHARE YOUR PRIVATE KEY WITH ANYONE. KEEP IT SAFE AND SECURE. IF YOUR PRIVATE KEY IS COMPROMISED, YOUR INSTANCE MAY BE AT RISK.",
-        shouldRunPrisma: "Do you want to run Prisma migrations now? (yes/no)",
-        runningPrisma: "Running Prisma migrations...",
-        runningGeneration: "Generating Prisma client...",
-        prismaGenerated: "Prisma client generated successfully!",
-        prismaFailed: "Failed to run Prisma migrations. Please check the error message below and run 'npx prisma migrate deploy' manually in the src directory.",
-        generationFailed: "Failed to generate Prisma client. Please check the error message below and run 'npx prisma generate' manually in the src directory.",
-        setupCompleteMessage: "Setup is complete! Please review the setup.env file, rename it to .env, and start your Mosaic API server. Thank you for using Mosaic!",
+        welcome: 'Welcome to the Mosaic API setup',
+        chooseYourLanguage: 'Choose your language (en/fr)',
+        instanceName: 'Mosaic instance name (for example api.ourmosaic.space)',
+        instanceAddr: 'Instance federation address (leave blank to reuse the instance name)',
+        frontendUrl: 'Public frontend URL (for example https://ourmosaic.space)',
+        invalidUrl: 'Invalid address. Please enter a valid URL starting with http:// or https://',
+        databaseUrl: 'Database URL',
+        redisUrl: 'Redis URL',
+        minioEndpoint: 'MinIO host (you can paste a full URL; it will be normalized)',
+        minioPort: 'MinIO port',
+        minioUseSsl: 'Use SSL for MinIO? (yes/no)',
+        minioAccessKey: 'MinIO access key',
+        minioSecretKey: 'MinIO secret key',
+        smtpHost: 'SMTP host',
+        smtpPort: 'SMTP port',
+        smtpSecure: 'Use a secure SMTP connection? (yes/no)',
+        smtpUser: 'SMTP username',
+        smtpPassword: 'SMTP password',
+        settingUp: 'Generating configuration file...',
+        configSaved: `Configuration saved to ${path.basename(setupFilePath)}.`,
+        generatingKeys: 'Generating RSA keys for your instance...',
+        keysGenerated: 'RSA keys generated and saved to private.key and public.key!',
+        important: 'IMPORTANT: DO NOT SHARE YOUR PRIVATE KEY WITH ANYONE. KEEP IT SAFE AND SECURE. IF YOUR PRIVATE KEY IS COMPROMISED, YOUR INSTANCE MAY BE AT RISK.',
+        shouldRunPrisma: 'Do you want to run Prisma migrations now? (yes/no)',
+        runningPrisma: 'Running Prisma migrations...',
+        runningGeneration: 'Generating Prisma client...',
+        prismaGenerated: 'Prisma operation completed successfully!',
+        prismaFailed: 'Prisma operation failed. Please check the error message below and rerun the commands manually if needed.',
+        generationFailed: 'Failed to generate Prisma client. Please check the error message below.',
+        setupCompleteMessage: `Setup is complete! Please review the ${path.basename(setupFilePath)} file, rename it to .env, and start your Mosaic API server.`,
         env: {
-            welcome: "Welcome to the Mosaic API .env file. You can modify these values as needed.",
-            instanceAddr: "The address where your Mosaic Instance will be accessible. Make sure to include the protocol (http:// or https://).",
-            allowRegistration: "Set to true to allow users to register themselves. If false, no one can create user accounts. Administrators will need to create accounts manually in the database.",
-            databaseUrl: "Database connection URL. The default is configured for a local PostgreSQL instance.",
-            minio: "MinIO configuration for avatar storage. Make sure to set these values according to your MinIO setup.",
-            jwt: "JWT secrets for signing access and refresh tokens. These are generated randomly during setup for security."
+            databaseUrl: 'Database connection URL.',
+            redisUrl: 'Redis connection URL.',
+            jwt: 'JWT secrets generated randomly during setup.',
+            minio: 'MinIO configuration for file storage.',
+            smtp: 'SMTP configuration used for emails.',
+            instance: 'Public identity for your Mosaic instance.',
+            frontend: 'Frontend URL used for activation links.',
         },
+    },
+};
+
+function askQuestion(query, defaultValue = '') {
+    const suffix = defaultValue ? ` [${defaultValue}]` : '';
+    return new Promise((resolve) =>
+        rl.question(`> ${query}${suffix}\n  > `, (answer) => {
+            const trimmed = String(answer ?? '').trim();
+            resolve(trimmed || defaultValue);
+        }),
+    );
+}
+
+function isAffirmative(value) {
+    const normalized = String(value ?? '').trim().toLowerCase();
+    return ['yes', 'y', 'oui', 'o', 'true', '1'].includes(normalized);
+}
+
+function normalizeHttpUrl(value) {
+    const trimmed = String(value ?? '').trim();
+    if (!trimmed) {
+        return '';
+    }
+
+    const candidate = /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
+    try {
+        const url = new URL(candidate);
+        return url.toString().replace(/\/$/, '');
+    } catch {
+        return trimmed;
     }
 }
 
-function askQuestion(query) {
-    return new Promise(resolve => rl.question(`> ${query}\n  > `, ans => resolve(ans)));
+function normalizeHostLikeValue(value) {
+    const trimmed = String(value ?? '').trim();
+    if (!trimmed) {
+        return '';
+    }
+
+    const candidate = /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
+    try {
+        const url = new URL(candidate);
+        return url.port ? `${url.hostname}:${url.port}` : url.hostname;
+    } catch {
+        return trimmed.replace(/^https?:\/\//i, '').replace(/\/$/, '');
+    }
+}
+
+function normalizePort(value, fallback) {
+    const trimmed = String(value ?? '').trim();
+    if (!trimmed) {
+        return fallback;
+    }
+
+    const parsed = Number.parseInt(trimmed, 10);
+    if (!Number.isFinite(parsed) || parsed <= 0) {
+        return fallback;
+    }
+
+    return String(parsed);
+}
+
+function buildEnvLine(key, value, quote = false) {
+    if (value === '') {
+        return `${key}=`;
+    }
+    return quote ? `${key}="${value}"` : `${key}=${value}`;
+}
+
+function runCommand(command, cwd) {
+    return new Promise((resolve, reject) => {
+        exec(command, { cwd }, (error, stdout, stderr) => {
+            if (error) {
+                reject({ error, stdout, stderr });
+                return;
+            }
+            resolve({ stdout, stderr });
+        });
+    });
 }
 
 async function main() {
@@ -112,122 +210,208 @@ async function main() {
   █████████████████████████████████████████████  
    ███████████████████████████████████████████   
       █████████████████████████████████████      
-`)
+`);
+
     console.log(`${locales.en.welcome} / ${locales.fr.welcome}`);
 
-    const locale = await askQuestion(`${locales.en.chooseYourLanguage} (en/fr)`);
-    const selectedLocale = locales[locale.toLowerCase()] || locales.en;
+    const localeChoice = await askQuestion(locales.en.chooseYourLanguage, 'en');
+    const selectedLocale = locales[localeChoice.toLowerCase()] || locales.en;
 
-    const instanceAddr = await askQuestion(`${selectedLocale.instanceAddr}`);
-    // check if the address is valid
-    if (!/^https?:\/\/[^\s]+$/.test(instanceAddr)) {
-        console.error(`${selectedLocale.invalidAddr}`);
-        process.exit(1);
+    const instanceName = normalizeHostLikeValue(
+        await askQuestion(selectedLocale.instanceName, 'api.ourmosaic.space'),
+    );
+    if (!instanceName) {
+        console.error(selectedLocale.invalidUrl);
+        process.exitCode = 1;
+        rl.close();
+        return;
     }
 
-    const allowRegistrationAnswer = await askQuestion(`${selectedLocale.allowRegistration}`);
-    const allowRegistration = allowRegistrationAnswer.toLowerCase() === 'yes' || allowRegistrationAnswer.toLowerCase() === 'y' || allowRegistrationAnswer.toLowerCase() === 'oui' || allowRegistrationAnswer.toLowerCase() === 'o';
+    const instanceAddrInput = await askQuestion(
+        selectedLocale.instanceAddr,
+        instanceName,
+    );
+    const instanceAddr = normalizeHostLikeValue(instanceAddrInput || instanceName);
+    if (!instanceAddr) {
+        console.error(selectedLocale.invalidUrl);
+        process.exitCode = 1;
+        rl.close();
+        return;
+    }
 
-    let databaseUrl = await askQuestion(`${selectedLocale.databaseUrl}`);
-    if (!databaseUrl) databaseUrl = 'postgresql://mosaic_user:mosaic_password@localhost:5433/mosaic_db?schema=public';
+    const frontendUrlInput = await askQuestion(
+        selectedLocale.frontendUrl,
+        'https://ourmosaic.space',
+    );
+    const frontendUrl = normalizeHttpUrl(frontendUrlInput);
+    if (!frontendUrl) {
+        console.error(selectedLocale.invalidUrl);
+        process.exitCode = 1;
+        rl.close();
+        return;
+    }
 
-    let minioUrl = await askQuestion(`${selectedLocale.minioUrl}`);
-    if (!minioUrl) minioUrl = 'localhost';
-    
-    let minioPort = await askQuestion(`${selectedLocale.minioPort}`);
-    if (!minioPort) minioPort = '9000';
+    const databaseUrl = normalizeHttpUrl(
+        await askQuestion(
+            selectedLocale.databaseUrl,
+            'postgresql://mosaic_user:mosaic_password@localhost:5433/mosaic_db?schema=public',
+        ),
+    );
 
-    let shouldUseSslAnswer = await askQuestion(`${selectedLocale.shouldUseSsl}`);
-    const shouldUseSsl = shouldUseSslAnswer.toLowerCase() === 'yes' || shouldUseSslAnswer.toLowerCase() === 'y' || shouldUseSslAnswer.toLowerCase() === 'oui' || shouldUseSslAnswer.toLowerCase() === 'o';
+    const redisUrl = normalizeHttpUrl(
+        await askQuestion(selectedLocale.redisUrl, 'redis://localhost:6380'),
+    );
 
-    let minioUser = await askQuestion(`${selectedLocale.minioUser}`);
-    if (!minioUser) minioUser = 'minio_user';
+    const minioEndpoint = normalizeHostLikeValue(
+        await askQuestion(
+            selectedLocale.minioEndpoint,
+            'https://assets.ourmosaic.space',
+        ),
+    );
 
-    let minioPassword = await askQuestion(`${selectedLocale.minioPassword}`);
-    if (!minioPassword) minioPassword = 'minio_password';
+    const minioPort = normalizePort(
+        await askQuestion(selectedLocale.minioPort, '9000'),
+        '9000',
+    );
 
-    const spinner = ora.default({spinner: ora.spinners.dots}).start(selectedLocale.settingUp);
+    const minioUseSsl = isAffirmative(
+        await askQuestion(selectedLocale.minioUseSsl, 'false'),
+    );
+
+    const minioAccessKey = String(
+        await askQuestion(selectedLocale.minioAccessKey, 'supersecretusername'),
+    ).trim();
+
+    const minioSecretKey = String(
+        await askQuestion(selectedLocale.minioSecretKey, 'supersecretpassword'),
+    ).trim();
+
+    const smtpHost = String(await askQuestion(selectedLocale.smtpHost, '')).trim();
+    const smtpPort = normalizePort(await askQuestion(selectedLocale.smtpPort, ''), '');
+    const smtpSecure = isAffirmative(
+        await askQuestion(selectedLocale.smtpSecure, 'true'),
+    );
+    const smtpUser = String(await askQuestion(selectedLocale.smtpUser, '')).trim();
+    const smtpPassword = String(
+        await askQuestion(selectedLocale.smtpPassword, ''),
+    ).trim();
+
+    const configSpinner = spinnerApi({ spinner: dotsSpinner }).start(
+        selectedLocale.settingUp,
+    );
 
     const jwtAccessSecret = crypto.randomBytes(32).toString('hex');
     const jwtRefreshSecret = crypto.randomBytes(32).toString('hex');
 
-    const envContent = `# ${selectedLocale.env.welcome}
+    const envContent = [
+        `# ${selectedLocale.welcome}`,
+        '',
+        `# ${selectedLocale.env.databaseUrl}`,
+        buildEnvLine('DATABASE_URL', databaseUrl, true),
+        buildEnvLine('REDIS_URL', redisUrl, true),
+        '',
+        `# ${selectedLocale.env.jwt}`,
+        buildEnvLine('JWT_ACCESS_SECRET', jwtAccessSecret, true),
+        buildEnvLine('JWT_REFRESH_SECRET', jwtRefreshSecret, true),
+        '',
+        `# ${selectedLocale.env.minio}`,
+        buildEnvLine('MINIO_ENDPOINT', minioEndpoint, true),
+        buildEnvLine('MINIO_PORT', minioPort),
+        buildEnvLine('MINIO_USE_SSL', String(minioUseSsl)),
+        buildEnvLine('MINIO_ACCESS_KEY', minioAccessKey, true),
+        buildEnvLine('MINIO_SECRET_KEY', minioSecretKey, true),
+        '',
+        `# ${selectedLocale.env.smtp}`,
+        buildEnvLine('SMTP_HOST', smtpHost, true),
+        buildEnvLine('SMTP_PORT', smtpPort),
+        buildEnvLine('SMTP_SECURE', String(smtpSecure)),
+        buildEnvLine('SMTP_USER', smtpUser, true),
+        buildEnvLine('SMTP_PASSWORD', smtpPassword, true),
+        '',
+        `# ${selectedLocale.env.instance}`,
+        buildEnvLine('INSTANCE_NAME', instanceName),
+        buildEnvLine('INSTANCE_ADDR', instanceAddr),
+        buildEnvLine('FRONTEND_URL', frontendUrl, true),
+        '',
+    ].join('\n');
 
-# ${selectedLocale.env.instanceAddr}
-INSTANCE_ADDR=${instanceAddr}
+    fs.writeFileSync(setupFilePath, `${envContent}\n`, 'utf8');
+    configSpinner.succeed(selectedLocale.configSaved);
 
-# ${selectedLocale.env.allowRegistration}
-ALLOW_REGISTRATION=${allowRegistration}
-
-# ${selectedLocale.env.databaseUrl}
-DATABASE_URL=${databaseUrl}
-
-# ${selectedLocale.env.minio}
-MINIO_ENDPOINT=${minioUrl}
-MINIO_PORT=${minioPort}
-MINIO_USE_SSL=${shouldUseSsl}
-MINIO_ACCESS_KEY=${minioUser}
-MINIO_SECRET_KEY=${minioPassword}
-
-# ${selectedLocale.env.jwt}
-JWT_ACCESS_SECRET=${jwtAccessSecret}
-JWT_REFRESH_SECRET=${jwtRefreshSecret}
-`;
-
-    fs.writeFileSync(path.join(__dirname, '.env'), envContent);
-    spinner.succeed(selectedLocale.setupComplete);
-    
-    const keysSpinner = ora.default({spinner: ora.spinners.dots}).start(selectedLocale.generatingKeys);
+    const keysSpinner = spinnerApi({ spinner: dotsSpinner }).start(
+        selectedLocale.generatingKeys,
+    );
     const { publicKey, privateKey } = crypto.generateKeyPairSync('rsa', {
         modulusLength: 2048,
         publicKeyEncoding: {
             type: 'spki',
-            format: 'pem'
+            format: 'pem',
         },
         privateKeyEncoding: {
             type: 'pkcs8',
-            format: 'pem'
-        }
+            format: 'pem',
+        },
     });
-    fs.writeFileSync(path.join(__dirname, 'private.key'), privateKey);
-    fs.writeFileSync(path.join(__dirname, 'public.key'), publicKey);
+    fs.writeFileSync(privateKeyPath, privateKey, 'utf8');
+    fs.writeFileSync(publicKeyPath, publicKey, 'utf8');
     keysSpinner.succeed(selectedLocale.keysGenerated);
-    console.log('\x1b[31m%s\x1b[0m', selectedLocale.privateKeyWarning);
+    console.log('\x1b[31m%s\x1b[0m', selectedLocale.important);
 
-    const shouldRunPrisma = await askQuestion(selectedLocale.shouldRunPrisma);
-    if (shouldRunPrisma.toLowerCase() === 'yes' || shouldRunPrisma.toLowerCase() === 'y' || shouldRunPrisma.toLowerCase() === 'oui' || shouldRunPrisma.toLowerCase() === 'o') {
-        const prismaSpinner = ora.default({spinner: ora.spinners.dots}).start(selectedLocale.runningPrisma);
-        await new Promise((resolve, reject) => {
-            exec('npx prisma migrate deploy', { cwd: path.join(__dirname) }, (error, stdout, stderr) => {
-                if (error) {
-                    prismaSpinner.fail(selectedLocale.prismaFailed);
-                    console.error(error);
-                    reject(error);
-                } else {
-                    prismaSpinner.succeed(selectedLocale.prismaGenerated);
-                    console.log(stdout);
-                    resolve();
+    const shouldRunPrisma = await askQuestion(selectedLocale.shouldRunPrisma, 'no');
+    if (isAffirmative(shouldRunPrisma)) {
+        const prismaSpinner = spinnerApi({ spinner: dotsSpinner }).start(
+            selectedLocale.runningPrisma,
+        );
+        try {
+            const migrateResult = await runCommand('npx prisma migrate dev --name migration', __dirname);
+            prismaSpinner.succeed(selectedLocale.prismaGenerated);
+            if (migrateResult.stdout) {
+                console.log(migrateResult.stdout);
+            }
+            if (migrateResult.stderr) {
+                console.error(migrateResult.stderr);
+            }
+
+            const generationSpinner = spinnerApi({ spinner: dotsSpinner }).start(
+                selectedLocale.runningGeneration,
+            );
+            try {
+                const generateResult = await runCommand('npx prisma generate', __dirname);
+                generationSpinner.succeed(selectedLocale.prismaGenerated);
+                if (generateResult.stdout) {
+                    console.log(generateResult.stdout);
                 }
-            });
-        });
-        const generationSpinner = ora.default({spinner: ora.spinners.dots}).start(selectedLocale.runningGeneration);
-        await new Promise((resolve, reject) => {
-            exec('npx prisma generate', { cwd: path.join(__dirname) }, (error, stdout, stderr) => {
-                if (error) {
-                    generationSpinner.fail(selectedLocale.generationFailed);
-                    console.error(error);
-                    reject(error);
-                } else {
-                    generationSpinner.succeed(selectedLocale.prismaGenerated);
-                    console.log(stdout);
-                    resolve();
+                if (generateResult.stderr) {
+                    console.error(generateResult.stderr);
                 }
-            });
-        });
+            } catch (result) {
+                generationSpinner.fail(selectedLocale.generationFailed);
+                if (result.stdout) {
+                    console.log(result.stdout);
+                }
+                if (result.stderr) {
+                    console.error(result.stderr);
+                }
+                console.error(result.error);
+            }
+        } catch (result) {
+            prismaSpinner.fail(selectedLocale.prismaFailed);
+            if (result.stdout) {
+                console.log(result.stdout);
+            }
+            if (result.stderr) {
+                console.error(result.stderr);
+            }
+            console.error(result.error);
+        }
     }
 
     console.log(selectedLocale.setupCompleteMessage);
     rl.close();
 }
 
-main();
+main().catch((error) => {
+    console.error(error);
+    rl.close();
+    process.exitCode = 1;
+});
