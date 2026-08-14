@@ -22,10 +22,14 @@ const locales = {
     fr: {
         welcome: "Bienvenue dans la configuration de l'API Mosaic",
         chooseYourLanguage: 'Choisissez votre langue (en/fr)',
+        legalIntro: "Des modèles pour les documents légaux se trouvent dans le dossier legal/. Si vous ne les avez pas encore remplis, vous pouvez les compléter plus tard.",
         instanceName: "Nom de l'instance Mosaic (par exemple api.ourmosaic.space)",
         instanceAddr: "Adresse de fédération de l'instance (laisser vide pour reprendre le nom de l'instance)",
         frontendUrl: 'URL du frontend public (par exemple https://ourmosaic.space)',
         invalidUrl: 'Adresse invalide. Veuillez entrer une URL valide commençant par http:// ou https://',
+        legalPrivacyPrompt: 'URL de la politique de confidentialité (laisser vide pour utiliser la valeur par défaut de stockage)',
+        legalTosPrompt: 'URL des Conditions Générales d\'Utilisation (CGU) (laisser vide pour utiliser la valeur par défaut de stockage)',
+        legalMentionsPrompt: 'URL des mentions légales (laisser vide pour utiliser la valeur par défaut de stockage)',
         databaseUrl: 'URL de la base de données',
         redisUrl: 'URL Redis',
         minioEndpoint: 'Hôte MinIO (vous pouvez coller une URL complète, elle sera normalisée)',
@@ -58,15 +62,20 @@ const locales = {
             smtp: 'Configuration SMTP utilisée pour les e-mails.',
             instance: 'Identité publique de votre instance Mosaic.',
             frontend: 'URL du frontend utilisée pour les liens d’activation.',
+            legal: 'URLs publiques des documents légaux (politique de confidentialité, CGU, mentions légales).',
         },
     },
     en: {
         welcome: 'Welcome to the Mosaic API setup',
         chooseYourLanguage: 'Choose your language (en/fr)',
+        legalIntro: 'There are ready-to-fill templates for legal documents in the legal/ folder. If you have not filled them yet, you can do it later.',
         instanceName: 'Mosaic instance name (for example api.ourmosaic.space)',
         instanceAddr: 'Instance federation address (leave blank to reuse the instance name)',
         frontendUrl: 'Public frontend URL (for example https://ourmosaic.space)',
         invalidUrl: 'Invalid address. Please enter a valid URL starting with http:// or https://',
+        legalPrivacyPrompt: 'Privacy policy URL (leave empty to use default storage value)',
+        legalTosPrompt: 'Terms of Service (TOS) URL (leave empty to use default storage value)',
+        legalMentionsPrompt: 'Legal mentions URL (leave empty to use default storage value)',
         databaseUrl: 'Database URL',
         redisUrl: 'Redis URL',
         minioEndpoint: 'MinIO host (you can paste a full URL; it will be normalized)',
@@ -99,6 +108,7 @@ const locales = {
             smtp: 'SMTP configuration used for emails.',
             instance: 'Public identity for your Mosaic instance.',
             frontend: 'Frontend URL used for activation links.',
+            legal: 'Public URLs for legal documents (privacy policy, terms, legal mentions).',
         },
     },
 };
@@ -251,6 +261,24 @@ async function main() {
         return;
     }
 
+    // Legal documents: offer defaults that point to our storage path using the instance name
+    console.log('');
+    console.log(selectedLocale.legalIntro ?? '');
+    const legalBase = `https://storage.ourmosaic.space/mosaic/${instanceName}/legal`;
+    const defaultPrivacy = `${legalBase}/Pol%20Conf.pdf`;
+    const defaultTos = `${legalBase}/CGU.pdf`;
+    const defaultMentions = `${legalBase}/Mentions%20L%C3%A9gales.pdf`;
+
+    const legalPrivacyUrl = String(
+        await askQuestion(selectedLocale.legalPrivacyPrompt, defaultPrivacy),
+    ).trim();
+    const legalTosUrl = String(
+        await askQuestion(selectedLocale.legalTosPrompt, defaultTos),
+    ).trim();
+    const legalMentionsUrl = String(
+        await askQuestion(selectedLocale.legalMentionsPrompt, defaultMentions),
+    ).trim();
+
     const databaseUrl = normalizeHttpUrl(
         await askQuestion(
             selectedLocale.databaseUrl,
@@ -332,6 +360,11 @@ async function main() {
         buildEnvLine('INSTANCE_NAME', instanceName),
         buildEnvLine('INSTANCE_ADDR', instanceAddr),
         buildEnvLine('FRONTEND_URL', frontendUrl, true),
+        '',
+        `# ${selectedLocale.env.legal}`,
+        buildEnvLine('LEGAL_PRIVACY_POLICY_URL', legalPrivacyUrl, true),
+        buildEnvLine('LEGAL_TOS_URL', legalTosUrl, true),
+        buildEnvLine('LEGAL_MENTIONS_URL', legalMentionsUrl, true),
         '',
     ].join('\n');
 

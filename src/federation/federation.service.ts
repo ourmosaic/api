@@ -121,6 +121,13 @@ export class FederationService {
     return {
       version: packageJsonRaw.version,
       publicKey: publicKey,
+      legal: {
+        privacy_policy:
+          this.configService.get<string>('LEGAL_PRIVACY_POLICY_URL') || '',
+        legal_mentions:
+          this.configService.get<string>('LEGAL_MENTIONS_URL') || '',
+        tos: this.configService.get<string>('LEGAL_TOS_URL') || '',
+      },
     };
   }
 
